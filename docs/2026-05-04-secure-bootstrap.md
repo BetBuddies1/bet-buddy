@@ -211,7 +211,7 @@ Create `package.json` with:
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
     "test:watch": "vitest",
-    "security:check": "bash scripts/security-check.sh",
+    "security:check": "node scripts/security-check.mjs",
     "security:csp": "node scripts/validate-csp.mjs",
     "build": "npm run typecheck && vite build && npm run security:csp",
     "preview": "vite preview"
@@ -713,6 +713,7 @@ Expected: commit succeeds.
 
 **Files:**
 - Create: `scripts/security-check.sh`
+- Create: `scripts/security-check.mjs`
 - Create: `scripts/validate-csp.mjs`
 
 - [ ] **Step 1: Create `scripts/security-check.sh`**
@@ -748,7 +749,67 @@ done
 exit "$EXIT_CODE"
 ```
 
-- [ ] **Step 2: Create `scripts/validate-csp.mjs`**
+- [ ] **Step 2: Create `scripts/security-check.mjs`**
+
+Create `scripts/security-check.mjs` with:
+
+```js
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+const forbiddenPatterns = [
+  { label: 'dangerouslySetInnerHTML', pattern: /dangerouslySetInnerHTML/ },
+  { label: 'innerHTML', pattern: /innerHTML/ },
+  { label: 'outerHTML', pattern: /outerHTML/ },
+  { label: 'insertAdjacentHTML', pattern: /insertAdjacentHTML/ },
+  { label: 'document.write', pattern: /document\.write/ },
+  { label: 'eval(', pattern: /eval\(/ },
+  { label: 'new Function', pattern: /new Function/ },
+  { label: 'setTimeout("', pattern: /setTimeout\("/ },
+  { label: 'setInterval("', pattern: /setInterval\("/ },
+  { label: 'http://', pattern: /http:\/\// },
+  { label: 'window.open', pattern: /window\.open/ },
+];
+
+const sourceExtensions = new Set(['.ts', '.tsx']);
+const findings = [];
+
+function scanDirectory(directory) {
+  for (const entry of readdirSync(directory)) {
+    const fullPath = join(directory, entry);
+    const stats = statSync(fullPath);
+
+    if (stats.isDirectory()) {
+      scanDirectory(fullPath);
+      continue;
+    }
+
+    if (![...sourceExtensions].some((extension) => fullPath.endsWith(extension))) {
+      continue;
+    }
+
+    const lines = readFileSync(fullPath, 'utf8').split(/\r?\n/);
+    lines.forEach((line, index) => {
+      forbiddenPatterns.forEach(({ label, pattern }) => {
+        if (pattern.test(line)) {
+          findings.push(`${fullPath}:${index + 1}: forbidden pattern found: ${label}`);
+        }
+      });
+    });
+  }
+}
+
+scanDirectory('src');
+
+if (findings.length > 0) {
+  findings.forEach((finding) => console.error(finding));
+  process.exit(1);
+}
+
+console.log('Security pattern check passed.');
+```
+
+- [ ] **Step 3: Create `scripts/validate-csp.mjs`**
 
 Create `scripts/validate-csp.mjs` with:
 
@@ -779,7 +840,7 @@ if (missing.length > 0) {
 console.log('CSP validation passed.');
 ```
 
-- [ ] **Step 3: Run security pattern check**
+- [ ] **Step 4: Run security pattern check**
 
 Run:
 
@@ -789,7 +850,7 @@ npm run security:check
 
 Expected: command exits with code `0` and no forbidden patterns are printed.
 
-- [ ] **Step 4: Run build and CSP validation**
+- [ ] **Step 5: Run build and CSP validation**
 
 Run:
 
@@ -803,7 +864,7 @@ Expected:
 CSP validation passed.
 ```
 
-- [ ] **Step 5: Commit security scripts**
+- [ ] **Step 6: Commit security scripts**
 
 Run:
 
@@ -858,7 +919,7 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         with:
           node-version: 20
@@ -880,7 +941,7 @@ jobs:
 Run:
 
 ```powershell
-git ls-remote https://github.com/actions/checkout.git 692973e3d937129bcbf40652eb9f2f61becf3332
+git ls-remote --tags https://github.com/actions/checkout.git refs/tags/v4.2.2
 git ls-remote https://github.com/actions/setup-node.git 1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
 git ls-remote https://github.com/actions/upload-pages-artifact.git 56afc609e74202658d3ffba0e8f6dda462b719fa
 git ls-remote https://github.com/actions/deploy-pages.git d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
