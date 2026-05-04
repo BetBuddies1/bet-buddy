@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Create a secure, GitHub Pages-ready Bet Buddy project foundation with React, TypeScript, Vite, documented security controls, and CI gates.
+**Goal:** Create a secure, locally verified Bet Buddy project foundation with React, TypeScript, Vite, documented security controls, and CI gates prepared for a later GitHub Pages release.
 
-**Architecture:** Bootstrap the repository first, then add the minimal frontend toolchain, then wire security controls required by `SECURITY-SSOT.md`. The first deliverable is not the full game; it is a reproducible, testable, deployable foundation that later MVP game tasks can build on safely.
+**Architecture:** Bootstrap the repository first, then add the minimal frontend toolchain, then wire security controls required by `SECURITY-SSOT.md`. The first deliverable is not the full game and is not published to GitHub; it is a reproducible, testable local foundation that later MVP game tasks can build on safely.
 
 **Tech Stack:** Git, GitHub Pages, GitHub Actions, Node.js 20, npm, Vite, React, TypeScript, Tailwind CSS, Vitest, Zustand, Howler.js, Lucide React, vite-plugin-pwa.
 
@@ -994,7 +994,7 @@ Expected: commit succeeds.
 
 ---
 
-### Task 8: Add README And Verify Local Production Readiness
+### Task 8: Add README And Verify Local Bootstrap Readiness
 
 **Files:**
 - Create: `README.md`
@@ -1041,7 +1041,7 @@ npm run build
 
 ## Deployment
 
-Production läuft über GitHub Pages und GitHub Actions. In den GitHub Repository Settings muss Pages auf `GitHub Actions` gesetzt werden.
+Production läuft später über GitHub Pages und GitHub Actions. Dieses Repository wird erst gepusht, wenn der MVP lokal spielbar und sicher verifiziert ist.
 ```
 
 - [ ] **Step 2: Run full local verification**
@@ -1065,21 +1065,21 @@ tests pass
 npm audit has no high or critical findings
 security check succeeds
 build succeeds
-git status shows only README.md as untracked or modified
+git status shows only README.md and docs/2026-05-04-secure-bootstrap.md as untracked or modified
 ```
 
-- [ ] **Step 3: Commit README**
+- [ ] **Step 3: Commit README and final bootstrap plan updates**
 
 Run:
 
 ```powershell
-git add README.md
+git add README.md docs/2026-05-04-secure-bootstrap.md
 git commit -m "docs: add project readme"
 ```
 
 Expected: commit succeeds.
 
-- [ ] **Step 4: Verify no remote exists before publication**
+- [ ] **Step 4: Verify no remote exists after bootstrap**
 
 Run:
 
@@ -1089,9 +1089,45 @@ git remote -v
 
 Expected: no output.
 
-- [ ] **Step 5: Add the GitHub remote after all local checks pass**
+- [ ] **Step 5: Stop before publication**
 
-Run:
+Do not run:
+
+```powershell
+git remote add origin https://github.com/BetBuddies1/bet-buddy.git
+git push -u origin main
+```
+
+Expected: these commands are intentionally deferred until the MVP is locally playable and passes the complete security verification.
+
+---
+
+### Task 9: Future Publication Gate After MVP
+
+**Files:**
+- No files changed by this task.
+
+- [ ] **Step 1: Confirm MVP-local-ready criteria**
+
+Before any GitHub remote or push, verify:
+
+```text
+4/6/8 player setup works locally
+manual team assignment works locally
+bidding with all teams works locally
+challenge timer and scoring work locally
+game over flow works locally
+npm run typecheck succeeds
+npm test succeeds
+npm audit --audit-level=high succeeds
+npm run security:check succeeds
+npm run build succeeds
+smartphone local-network smoke test succeeds
+```
+
+- [ ] **Step 2: Add GitHub remote only after MVP approval**
+
+Run only after the user explicitly approves publication:
 
 ```powershell
 git remote add origin https://github.com/BetBuddies1/bet-buddy.git
@@ -1099,36 +1135,21 @@ git remote add origin https://github.com/BetBuddies1/bet-buddy.git
 
 Expected: command exits with code `0`.
 
-- [ ] **Step 6: Verify the remote**
+- [ ] **Step 3: Push only after MVP approval**
 
-Run:
-
-```powershell
-git remote -v
-```
-
-Expected:
-
-```text
-origin  https://github.com/BetBuddies1/bet-buddy.git (fetch)
-origin  https://github.com/BetBuddies1/bet-buddy.git (push)
-```
-
-- [ ] **Step 7: Push to GitHub**
-
-Run:
+Run only after the user explicitly approves publication:
 
 ```powershell
 git push -u origin main
 ```
 
-Expected: push succeeds and the repository at `https://github.com/BetBuddies1/bet-buddy` contains the committed files.
+Expected: push succeeds and the repository at `https://github.com/BetBuddies1/bet-buddy` contains the locally verified MVP.
 
 ---
 
 ## Self-Review
 
-- Spec coverage: The plan covers local repository setup first, delayed GitHub remote configuration after local verification, GitHub Pages base path, security source of truth, CSP, input validation, dependency guardrails, CI gates, Dependabot, `.npmrc`, `.nojekyll`, and production build hardening.
+- Spec coverage: The plan covers local repository setup first, no GitHub publication during bootstrap, GitHub Pages base path prepared for later, security source of truth, CSP, input validation, dependency guardrails, CI gates, Dependabot, `.npmrc`, `.nojekyll`, and production build hardening.
 - Scope: This plan intentionally stops before implementing the full game flow. The next plan should cover the MVP game model and screens.
 - Open-token scan: The workflow section uses concrete SHA pins and includes a verification step that fails if any action is not pinned to a 40-character SHA.
 - Type consistency: `validatePlayerName` result types and tests use consistent names and return shapes.

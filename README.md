@@ -35,4 +35,4 @@ npm run build
 
 ## Deployment
 
-Production läuft über GitHub Pages und GitHub Actions. In den GitHub Repository Settings muss Pages auf `GitHub Actions` gesetzt werden.
+Production läuft später über GitHub Pages und GitHub Actions. Das Repository wird erst gepusht, wenn der MVP lokal spielbar und sicher verifiziert ist.
