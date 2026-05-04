@@ -372,36 +372,27 @@ Zus채tzlich soll ein automatisierter Security Pattern Check verbotene APIs im `s
 - `http://`
 - `window.open`
 
-**Implementierung als CI-Schritt:**
+**Aktive Implementierung als CI-Schritt:**
 
-```bash
-#!/bin/bash
-# scripts/security-check.sh
-set -euo pipefail
+Der aktive Check ist `scripts/security-check.mjs` und wird plattform체bergreifend 체ber `npm run security:check` ausgef체hrt. Eine Bash-Variante wird nicht gepflegt, damit lokale Windows-Entwicklung und GitHub Actions dieselbe Implementierung verwenden.
 
-FORBIDDEN_PATTERNS=(
-  'dangerouslySetInnerHTML'
-  'innerHTML'
-  'outerHTML'
-  'insertAdjacentHTML'
-  'document\.write'
-  'eval('
-  'new Function'
-  'setTimeout("'
-  'setInterval("'
-  'http://'
-  'window\.open'
-)
+```js
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
-EXIT_CODE=0
-for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
-  if grep -rn --include='*.ts' --include='*.tsx' "$pattern" src/; then
-    echo "SECURITY: Forbidden pattern found: $pattern"
-    EXIT_CODE=1
-  fi
-done
-
-exit $EXIT_CODE
+const forbiddenPatterns = [
+  { label: 'dangerouslySetInnerHTML', pattern: /dangerouslySetInnerHTML/ },
+  { label: 'innerHTML', pattern: /innerHTML/ },
+  { label: 'outerHTML', pattern: /outerHTML/ },
+  { label: 'insertAdjacentHTML', pattern: /insertAdjacentHTML/ },
+  { label: 'document.write', pattern: /document\.write/ },
+  { label: 'eval(', pattern: /eval\(/ },
+  { label: 'new Function', pattern: /new Function/ },
+  { label: 'setTimeout("', pattern: /setTimeout\("/ },
+  { label: 'setInterval("', pattern: /setInterval\("/ },
+  { label: 'http://', pattern: /http:\/\// },
+  { label: 'window.open', pattern: /window\.open/ },
+];
 ```
 
 Ein Deployment auf GitHub Pages darf nur erfolgen, wenn alle Checks erfolgreich sind oder ein Finding dokumentiert und bewusst akzeptiert wurde.
@@ -459,7 +450,7 @@ Der CI/CD-Workflow muss gegen Supply-Chain-Angriffe auf die Pipeline selbst geh�
 - uses: actions/checkout@v4
 
 # ERLAUBT:
-- uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.2.2
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 ```
 
 - `permissions` auf Job-Ebene auf das absolute Minimum einschr채nken.
@@ -485,16 +476,16 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: 20
           cache: 'npm'
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test -- --run
+      - run: npm test
       - run: npm audit --audit-level=high
-      - run: bash scripts/security-check.sh
+      - run: npm run security:check
       - run: npm run build
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:

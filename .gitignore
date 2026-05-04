@@ -5,13 +5,10 @@ node_modules/
 dist/
 dist-ssr/
 coverage/
-playwright-report/
-test-results/
 
 # Environment files
 .env
 .env.*
-!.env.example
 
 # Logs
 *.log

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-const html = readFileSync('dist/index.html', 'utf8');
+const html = readFileSync('dist/index.html', 'utf8').replace(/\s+/g, ' ');
 
 const requiredDirectives = [
   "default-src 'none'",
