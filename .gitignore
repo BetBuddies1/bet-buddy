@@ -30,3 +30,7 @@ desktop.ini
 
 # TypeScript
 *.tsbuildinfo
+
+# Security documentation (internal only, not for public repository)
+# Policies are enforced by code (CSP, CI scripts), docs are internal guidance.
+docs/
