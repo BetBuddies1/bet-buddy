@@ -11,7 +11,15 @@ import type { BiddingState, Player, Question, Team } from './game/types';
 import { createQuestionDeck } from './game/questionDeck';
 import { validatePlayerName } from './security/validatePlayerName';
 
-type Phase = 'setup' | 'teams' | 'result' | 'finished';
+type Phase =
+  | 'welcome'
+  | 'setup'
+  | 'teams'
+  | 'roundIntro'
+  | 'bidding'
+  | 'challenge'
+  | 'roundScore'
+  | 'finished';
 type AppProps = {
   createDeck?: () => Question[];
 };
@@ -36,7 +44,7 @@ const soundPlaceholders = {
 const roundCountOptions = [6, 8, 10] as const;
 
 export default function App({ createDeck = createQuestionDeck }: AppProps) {
-  const [phase, setPhase] = useState<Phase>('setup');
+  const [phase, setPhase] = useState<Phase>('welcome');
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [roundCount, setRoundCount] = useState<number>(6);
   const [playerNames, setPlayerNames] = useState<string[]>([]);
@@ -55,6 +63,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     () => new Map(teams.map((team) => [team.id, team])),
     [teams],
   );
+  const usesTableMode = teams.length === 2;
 
   useEffect(() => {
     if (challengeState?.status !== 'running') {
@@ -174,7 +183,16 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setQuestionIndex(0);
     setBiddingState(createBiddingState(nextTeams, nextQuestionDeck[0], nextTeams[0].id));
     setChallengeState(null);
-    setPhase('result');
+    setPhase('roundIntro');
+    setMessage(null);
+  }
+
+  function startBiddingRound() {
+    if (biddingState?.status !== 'bidding') {
+      return;
+    }
+
+    setPhase('bidding');
     setMessage(null);
   }
 
@@ -204,6 +222,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           }
         : null,
     );
+    setPhase(nextBiddingState.status === 'challenge' ? 'challenge' : 'bidding');
     setMessage(null);
   }
 
@@ -273,9 +292,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setBiddingState(null);
     setChallengeState(null);
 
-    if (currentRound >= roundCount) {
-      setPhase('finished');
-    }
+    setPhase(currentRound >= roundCount ? 'finished' : 'roundScore');
 
     setMessage(
       `${formatPointResult(teams, winnerIds, challengeTeamName, wasSuccessful)} Sound-Platzhalter: ${sound}`,
@@ -299,11 +316,12 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
         firstTeam.id,
       ),
     );
+    setPhase('roundIntro');
     setMessage(null);
   }
 
   function resetGame() {
-    setPhase('setup');
+    setPhase('welcome');
     setPlayerCount(null);
     setRoundCount(6);
     setPlayerNames([]);
@@ -338,13 +356,26 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           <p className="intro">
             Setzt Teams, bietet mutig und zeigt, wie gut ihr eure Buddies einschätzen könnt.
           </p>
-          {phase !== 'setup' ? (
+          {phase !== 'welcome' ? (
             <button className="secondary-action compact-action" onClick={resetGame} type="button">
               Neues Spiel
             </button>
           ) : null}
         </div>
       </header>
+
+      {phase === 'welcome' ? (
+        <section className="workspace welcome-screen" aria-labelledby="welcome-title">
+          <p className="eyebrow">Gemeinsam am Tisch</p>
+          <h2 id="welcome-title">Willkommen bei Bet Buddy</h2>
+          <p className="screen-copy">
+            Ein lokales Teamspiel mit Fragen, mutigen Zielen und schnellen Challenges.
+          </p>
+          <button className="primary-action" onClick={() => setPhase('setup')} type="button">
+            Spiel vorbereiten
+          </button>
+        </section>
+      ) : null}
 
       {phase === 'setup' ? (
         <section className="workspace" aria-labelledby="setup-title">
@@ -451,8 +482,19 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
         </section>
       ) : null}
 
-      {phase === 'result' ? (
-        <section className="workspace play-space" aria-labelledby="round-title">
+      {phase === 'roundIntro' ? (
+        <section
+          className={`workspace round-screen ${usesTableMode ? 'table-question-screen' : ''}`}
+          aria-labelledby="round-title"
+        >
+          {usesTableMode ? (
+            <QuestionTablePanel
+              className="is-opponent"
+              currentRound={currentRound}
+              question={activeQuestion}
+              roundCount={roundCount}
+            />
+          ) : null}
           <div className="round-panel hero-panel">
             <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
             <h2 id="round-title">{activeQuestion.text}</h2>
@@ -461,9 +503,23 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               {activeQuestion.timeLimit} Sekunden
             </p>
           </div>
+          <button className="primary-action screen-action" onClick={startBiddingRound} type="button">
+            Bietrunde starten
+          </button>
+        </section>
+      ) : null}
 
-          {biddingState?.status === 'bidding' ? (
-            <div className="round-controls phase-panel bidding-panel">
+      {phase === 'bidding' && biddingState?.status === 'bidding' ? (
+        usesTableMode ? (
+          <section className="workspace table-mode" aria-label="Tischmodus für zwei Teams">
+            <BiddingTablePanel
+              className="is-opponent"
+              currentBid={biddingState.currentBid}
+              question={activeQuestion}
+              teamName={getOtherTeamName(teams, biddingState.activeTeamId)}
+            />
+            <div className="table-core phase-panel bidding-panel">
+              <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
               <p className="eyebrow">Bietrunde</p>
               <p className="turn-label">
                 {teamById.get(biddingState.activeTeamId)?.name} ist am Zug
@@ -478,15 +534,44 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
                 </button>
               </div>
             </div>
-          ) : null}
+            <BiddingTablePanel
+              className="is-active"
+              currentBid={biddingState.currentBid}
+              question={activeQuestion}
+              teamName={teamById.get(biddingState.activeTeamId)?.name ?? 'Aktives Team'}
+            />
+          </section>
+        ) : (
+          <section className="workspace round-screen" aria-labelledby="bidding-title">
+            <div className="round-controls phase-panel bidding-panel">
+              <p className="eyebrow">Bietrunde</p>
+              <h2 id="bidding-title" className="turn-label">
+                {teamById.get(biddingState.activeTeamId)?.name} ist am Zug
+              </h2>
+              <p className="bid-value">Aktuelles Ziel: {biddingState.currentBid}</p>
+              <p className="round-meta">{activeQuestion.text}</p>
+              <div className="action-row">
+                <button className="primary-action" onClick={handleRaiseBid} type="button">
+                  Ziel +1
+                </button>
+                <button className="secondary-action" onClick={handlePassBid} type="button">
+                  Passen
+                </button>
+              </div>
+            </div>
+          </section>
+        )
+      ) : null}
 
-          {biddingState?.status === 'challenge' ? (
+      {phase === 'challenge' && biddingState?.status === 'challenge' ? (
+        <section className="workspace round-screen" aria-labelledby="challenge-title">
             <div className="round-controls phase-panel challenge-panel">
               <p className="eyebrow">Challenge</p>
-              <p className="turn-label">
+              <h2 id="challenge-title" className="turn-label">
                 {teamById.get(biddingState.challengeTeamId)?.name} muss{' '}
                 {biddingState.currentBid} schaffen
-              </p>
+              </h2>
+              <p className="round-meta">{activeQuestion.text}</p>
               {challengeState !== null ? (
                 <>
                   <p className="timer-value">Timer: {challengeState.secondsLeft} Sekunden</p>
@@ -531,33 +616,35 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
                 </>
               ) : null}
             </div>
-          ) : null}
+        </section>
+      ) : null}
 
-          {biddingState === null ? (
+      {phase === 'roundScore' ? (
+        <section className="workspace score-screen" aria-labelledby="round-score-title">
             <div className="round-controls phase-panel">
-              <p className="turn-label">Runde ausgewertet</p>
+              <h2 id="round-score-title" className="turn-label">Runde ausgewertet</h2>
+              {message !== null ? <p className="round-meta">{message}</p> : null}
               <button className="primary-action" onClick={startNextRound} type="button">
                 Nächste Runde
               </button>
             </div>
-          ) : null}
-
           <Scoreboard teams={teams} players={players} />
         </section>
       ) : null}
 
       {phase === 'finished' ? (
-        <section className="workspace play-space" aria-labelledby="finished-title">
-          <div className="round-panel">
+        <section className="workspace score-screen" aria-labelledby="finished-title">
+          <div className="round-panel hero-panel">
             <p className="eyebrow">Nach {roundCount} Runden</p>
             <h2 id="finished-title">Spiel beendet</h2>
+            {message !== null ? <p className="round-meta">{message}</p> : null}
             <p className="round-meta">{formatGameResult(teams)}</p>
           </div>
           <Scoreboard teams={teams} players={players} />
         </section>
       ) : null}
 
-      {message !== null ? (
+      {message !== null && phase !== 'roundScore' && phase !== 'finished' ? (
         <p className="status-message" role="status">
           {message}
         </p>
@@ -572,6 +659,52 @@ function createInitialTeamDrafts(players: Player[]): TeamDraft[] {
     name: `Team ${index + 1}`,
     playerIds: [players[index * 2].id, players[index * 2 + 1].id],
   }));
+}
+
+function getOtherTeamName(teams: Team[], activeTeamId: string) {
+  return teams.find((team) => team.id !== activeTeamId)?.name ?? 'Anderes Team';
+}
+
+function QuestionTablePanel({
+  className,
+  currentRound,
+  question,
+  roundCount,
+}: {
+  className: string;
+  currentRound: number;
+  question: Question;
+  roundCount: number;
+}) {
+  return (
+    <div className={`table-question-panel ${className}`} aria-hidden={className === 'is-opponent'}>
+      <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
+      <p className="table-question-text">{question.text}</p>
+      <p className="round-meta">
+        {getCategoryLabel(question.category)} · {question.timeLimit} Sekunden
+      </p>
+    </div>
+  );
+}
+
+function BiddingTablePanel({
+  className,
+  currentBid,
+  question,
+  teamName,
+}: {
+  className: string;
+  currentBid: number;
+  question: Question;
+  teamName: string;
+}) {
+  return (
+    <div className={`table-team-panel ${className}`} aria-hidden={className === 'is-opponent'}>
+      <p className="eyebrow">{teamName}</p>
+      <p className="table-question-text">{question.text}</p>
+      <p className="bid-value">Ziel {currentBid}</p>
+    </div>
+  );
 }
 
 function getCategoryLabel(category: Question['category']) {

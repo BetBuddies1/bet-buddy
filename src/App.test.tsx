@@ -108,11 +108,27 @@ function fillPlayerNames(names: string[]) {
   });
 }
 
-function startFourPlayerGame() {
+function openSetup() {
+  clickButton('Spiel vorbereiten');
+}
+
+function ensureSetupOpen() {
+  if (!container.textContent?.includes('Spieleranzahl')) {
+    openSetup();
+  }
+}
+
+function prepareFourPlayerRound() {
+  ensureSetupOpen();
   clickButton('4 Spieler');
   fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
   clickButton('Teams setzen');
   clickButton('Spiel starten');
+}
+
+function startFourPlayerGame() {
+  prepareFourPlayerRound();
+  clickButton('Bietrunde starten');
 }
 
 function finishSuccessfulRound() {
@@ -150,7 +166,40 @@ describe('App', () => {
     container.remove();
   });
 
+  it('starts with a focused welcome screen before setup begins', () => {
+    expectText('Willkommen bei Bet Buddy');
+    expectButtonCount('Spiel vorbereiten', 1);
+    expectNoText('Spieleranzahl');
+
+    openSetup();
+
+    expectText('Spieleranzahl');
+  });
+
+  it('shows the question as its own screen before the bidding round starts', () => {
+    prepareFourPlayerRound();
+
+    expectText('Wie viele Testantworten kann dein Buddy nennen?');
+    expectText('Bietrunde starten');
+    expectNoText('Aktuelles Ziel');
+    expectNoText('Punktestand');
+
+    clickButton('Bietrunde starten');
+
+    expectText('Bietrunde');
+    expectText('Aktuelles Ziel: 1');
+  });
+
+  it('uses a table mode layout for two-team bidding rounds', () => {
+    startFourPlayerGame();
+
+    expect(container.querySelector('.table-mode')).not.toBeNull();
+    expect(container.querySelector('.table-team-panel.is-opponent')).not.toBeNull();
+    expect(container.querySelector('.table-team-panel.is-active')).not.toBeNull();
+  });
+
   it('creates editable manual teams for a 4-player game', () => {
+    openSetup();
     clickButton('4 Spieler');
     fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
     clickButton('Teams setzen');
@@ -163,6 +212,7 @@ describe('App', () => {
   });
 
   it('lets players choose the game scope in rounds', () => {
+    openSetup();
     clickButton('8 Runden');
     startFourPlayerGame();
 
@@ -170,6 +220,7 @@ describe('App', () => {
   });
 
   it('creates manual teams for a 6-player game', () => {
+    openSetup();
     clickButton('6 Spieler');
     fillPlayerNames(['Anna', 'Ben', 'Clara', 'David', 'Elif', 'Finn']);
     clickButton('Teams setzen');
@@ -180,6 +231,7 @@ describe('App', () => {
   });
 
   it('creates manual teams for an 8-player game', () => {
+    openSetup();
     clickButton('8 Spieler');
     fillPlayerNames(['Anna', 'Ben', 'Clara', 'David', 'Elif', 'Finn', 'Gina', 'Hannes']);
     clickButton('Teams setzen');
@@ -190,6 +242,7 @@ describe('App', () => {
   });
 
   it('rejects invalid player names before teams are created', () => {
+    openSetup();
     clickButton('4 Spieler');
     fillPlayerNames(['Anna<script>', 'Ben', 'Clara', 'David']);
     clickButton('Teams setzen');
@@ -200,6 +253,7 @@ describe('App', () => {
   });
 
   it('rejects duplicate player assignments when teams are manually changed', () => {
+    openSetup();
     clickButton('4 Spieler');
     fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
     clickButton('Teams setzen');
@@ -289,14 +343,14 @@ describe('App', () => {
 
     clickButton('Neues Spiel');
 
-    expectText('Spiel vorbereiten');
-    expectButtonCount('4 Spieler', 1);
+    expectText('Willkommen bei Bet Buddy');
+    expectButtonCount('Spiel vorbereiten', 1);
     expectNoText('Team 1 bekommt 1 Punkt.');
     expectNoText('1 Punkt');
 
     startFourPlayerGame();
     expectText('Team 1 ist am Zug');
-    expectText('0 Punkte');
+    expectText('Aktuelles Ziel: 1');
   });
 
   it('ends the game after the selected number of rounds', () => {
@@ -307,6 +361,7 @@ describe('App', () => {
 
       if (round < 6) {
         clickButton('Nächste Runde');
+        clickButton('Bietrunde starten');
       }
     }
 
@@ -341,8 +396,9 @@ describe('App', () => {
     container.remove();
     renderApp({ createDeck: () => controlledDeck });
 
-    startFourPlayerGame();
+    prepareFourPlayerRound();
     expectText('Wie viele Testbegriffe schafft Buddy A?');
+    clickButton('Bietrunde starten');
     clickButton('Ziel +1');
     clickButton('Passen');
     clickButton('+1');
@@ -352,6 +408,8 @@ describe('App', () => {
     clickButton('Nächste Runde');
 
     expectText('Wie viele Testbegriffe schafft Buddy B?');
+    expectNoText('Aktuelles Ziel: 2');
+    clickButton('Bietrunde starten');
     expectText('Aktuelles Ziel: 2');
   });
 });

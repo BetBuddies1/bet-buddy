@@ -286,6 +286,30 @@ h3 {
   backdrop-filter: blur(14px);
 }
 
+.welcome-screen,
+.round-screen,
+.score-screen {
+  min-height: min(68vh, 720px);
+  align-content: center;
+}
+
+.welcome-screen {
+  max-width: 780px;
+}
+
+.screen-copy {
+  max-width: 560px;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.screen-action {
+  width: min(100%, 360px);
+}
+
 .setup-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -510,6 +534,10 @@ h3 {
   gap: 10px;
 }
 
+.score-screen .scoreboard {
+  align-self: start;
+}
+
 .score-row {
   display: flex;
   align-items: center;
@@ -545,6 +573,65 @@ h3 {
   background: rgb(2 11 31 / 72%);
   color: var(--muted);
   box-shadow: 0 16px 36px var(--shadow);
+}
+
+.table-question-screen,
+.table-mode {
+  width: min(100%, 920px);
+}
+
+.table-question-screen {
+  min-height: calc(100vh - 180px);
+  align-content: space-between;
+}
+
+.table-mode {
+  min-height: calc(100vh - 180px);
+  grid-template-rows: minmax(150px, 1fr) auto minmax(150px, 1fr);
+  align-content: stretch;
+}
+
+.table-question-panel,
+.table-team-panel,
+.table-core {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    linear-gradient(145deg, rgb(83 215 255 / 12%), transparent 48%),
+    rgb(2 11 31 / 66%);
+}
+
+.table-question-panel,
+.table-team-panel {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-height: 150px;
+}
+
+.table-question-panel.is-opponent,
+.table-team-panel.is-opponent {
+  transform: rotate(180deg);
+}
+
+.table-question-text {
+  margin-bottom: 0;
+  color: var(--text);
+  font-size: clamp(24px, 4vw, 40px);
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.table-core {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+}
+
+.table-core .action-row {
+  justify-content: center;
 }
 
 @media (max-width: 760px) {
@@ -587,6 +674,11 @@ h3 {
   .setup-grid,
   .play-space {
     grid-template-columns: 1fr;
+  }
+
+  .table-question-screen,
+  .table-mode {
+    min-height: auto;
   }
 
   .primary-action,
