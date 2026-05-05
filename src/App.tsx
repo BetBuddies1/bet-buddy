@@ -7,8 +7,8 @@ import {
   resolveChallenge,
   validateManualTeams,
 } from './game/gameLogic';
-import type { BiddingState, Player, Question, Team } from './game/types';
-import { createQuestionDeck } from './game/questionDeck';
+import type { BiddingState, CategoryId, Player, Question, Team } from './game/types';
+import { createQuestionDeck, filterQuestionsByCategories } from './game/questionDeck';
 import { validatePlayerName } from './security/validatePlayerName';
 
 type Phase =
@@ -42,11 +42,23 @@ const soundPlaceholders = {
   challengeFail: 'sounds/challenge-fail-placeholder.mp3',
 };
 const roundCountOptions = [6, 8, 10] as const;
+const categoryOptions: Array<{ id: CategoryId; label: string }> = [
+  { id: 'allgemeinwissen', label: 'Allgemeinwissen' },
+  { id: 'geographie', label: 'Geographie' },
+  { id: 'kreativ', label: 'Kreativ' },
+  { id: 'koerperlich', label: 'Körperlich' },
+  { id: 'essen-trinken', label: 'Essen & Trinken' },
+  { id: 'geschichte', label: 'Geschichte' },
+];
+const defaultSelectedCategories = categoryOptions.map((category) => category.id);
 
 export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const [phase, setPhase] = useState<Phase>('welcome');
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [roundCount, setRoundCount] = useState<number>(6);
+  const [selectedCategories, setSelectedCategories] = useState<CategoryId[]>(
+    defaultSelectedCategories,
+  );
   const [playerNames, setPlayerNames] = useState<string[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [teamDrafts, setTeamDrafts] = useState<TeamDraft[]>([]);
@@ -103,6 +115,23 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   function chooseRoundCount(count: number) {
     setRoundCount(count);
     setMessage(null);
+  }
+
+  function toggleCategory(categoryId: CategoryId) {
+    setSelectedCategories((currentCategories) => {
+      if (currentCategories.includes(categoryId)) {
+        if (currentCategories.length === 1) {
+          setMessage('Mindestens eine Kategorie muss aktiv bleiben.');
+          return currentCategories;
+        }
+
+        setMessage(null);
+        return currentCategories.filter((currentCategoryId) => currentCategoryId !== categoryId);
+      }
+
+      setMessage(null);
+      return [...currentCategories, categoryId];
+    });
   }
 
   function updatePlayerName(index: number, value: string) {
@@ -164,7 +193,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   }
 
   function startGame() {
-    const nextQuestionDeck = createDeck();
+    const nextQuestionDeck = filterQuestionsByCategories(createDeck(), selectedCategories);
     const nextTeams: Team[] = teamDrafts.map((draft, index) => ({
       id: draft.id,
       name: draft.name.trim() || `Team ${index + 1}`,
@@ -175,6 +204,11 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
     if (!validation.ok) {
       setMessage(validation.error);
+      return;
+    }
+
+    if (nextQuestionDeck.length === 0) {
+      setMessage('Für die aktive Kategorieauswahl sind keine Fragen verfügbar.');
       return;
     }
 
@@ -324,6 +358,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setPhase('welcome');
     setPlayerCount(null);
     setRoundCount(6);
+    setSelectedCategories(defaultSelectedCategories);
     setPlayerNames([]);
     setPlayers([]);
     setTeamDrafts([]);
@@ -412,6 +447,23 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               </div>
             </section>
           </div>
+
+          <section aria-labelledby="category-title">
+            <h3 id="category-title">Kategorien</h3>
+            <div className="category-grid" aria-label="Kategorien wählen">
+              {categoryOptions.map((category) => (
+                <button
+                  aria-pressed={selectedCategories.includes(category.id)}
+                  className={selectedCategories.includes(category.id) ? 'is-selected' : ''}
+                  key={category.id}
+                  onClick={() => toggleCategory(category.id)}
+                  type="button"
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
+          </section>
 
           {playerCount !== null ? (
             <>
@@ -708,16 +760,7 @@ function BiddingTablePanel({
 }
 
 function getCategoryLabel(category: Question['category']) {
-  const labels: Record<Question['category'], string> = {
-    allgemeinwissen: 'Allgemeinwissen',
-    geographie: 'Geographie',
-    kreativ: 'Kreativ',
-    koerperlich: 'Körperlich',
-    'essen-trinken': 'Essen & Trinken',
-    geschichte: 'Geschichte',
-  };
-
-  return labels[category];
+  return categoryOptions.find((categoryOption) => categoryOption.id === category)?.label ?? category;
 }
 
 function formatPointResult(

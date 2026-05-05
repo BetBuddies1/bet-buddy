@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createQuestionDeck, getQuestionBank } from './questionDeck';
+import { createQuestionDeck, filterQuestionsByCategories, getQuestionBank } from './questionDeck';
 
 describe('questionDeck', () => {
   it('contains local questions from multiple categories', () => {
@@ -38,5 +38,14 @@ describe('questionDeck', () => {
     expect(createQuestionDeck(() => 0).map((question) => question.text)).not.toContain(
       'Manipulierte Frage',
     );
+  });
+
+  it('filters questions by selected categories without mutating the original deck', () => {
+    const questions = getQuestionBank();
+    const filteredQuestions = filterQuestionsByCategories(questions, ['kreativ']);
+
+    expect(filteredQuestions.length).toBeGreaterThan(0);
+    expect(filteredQuestions.every((question) => question.category === 'kreativ')).toBe(true);
+    expect(questions.some((question) => question.category !== 'kreativ')).toBe(true);
   });
 });

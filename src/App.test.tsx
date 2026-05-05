@@ -86,6 +86,18 @@ function changeSelect(label: string, value: string) {
   });
 }
 
+function expectButtonSelected(label: string, expectedSelected: boolean) {
+  const button = [...container.querySelectorAll('button')].find(
+    (candidate) => candidate.textContent === label,
+  );
+
+  if (!button) {
+    throw new Error(`Button nicht gefunden: ${label}`);
+  }
+
+  expect(button.getAttribute('aria-pressed')).toBe(String(expectedSelected));
+}
+
 function expectText(text: string) {
   expect(container.textContent).toContain(text);
 }
@@ -217,6 +229,39 @@ describe('App', () => {
     startFourPlayerGame();
 
     expectText('Runde 1 von 8');
+  });
+
+  it('lets players filter the question deck by category', () => {
+    openSetup();
+
+    expectText('Kategorien');
+    expectButtonSelected('Allgemeinwissen', true);
+    expectButtonSelected('Kreativ', true);
+
+    clickButton('Allgemeinwissen');
+    expectButtonSelected('Allgemeinwissen', false);
+
+    clickButton('4 Spieler');
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
+    clickButton('Teams setzen');
+    clickButton('Spiel starten');
+
+    expectText('Wie viele weitere Testantworten kann dein Buddy nennen?');
+    expectText('Kategorie: Kreativ');
+  });
+
+  it('keeps at least one question category active', () => {
+    openSetup();
+
+    clickButton('Allgemeinwissen');
+    clickButton('Kreativ');
+    clickButton('Geographie');
+    clickButton('Körperlich');
+    clickButton('Essen & Trinken');
+    clickButton('Geschichte');
+
+    expectButtonSelected('Geschichte', true);
+    expectText('Mindestens eine Kategorie muss aktiv bleiben.');
   });
 
   it('creates manual teams for a 6-player game', () => {

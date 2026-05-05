@@ -1,4 +1,4 @@
-import type { Question } from './types';
+import type { CategoryId, Question } from './types';
 
 const questionBank: Question[] = [
   {
@@ -85,6 +85,17 @@ const questionBank: Question[] = [
 
 export function getQuestionBank(): Question[] {
   return questionBank.map((question) => ({ ...question }));
+}
+
+export function filterQuestionsByCategories(
+  questions: Question[],
+  selectedCategories: CategoryId[],
+): Question[] {
+  const selectedCategorySet = new Set(selectedCategories);
+
+  return questions
+    .filter((question) => selectedCategorySet.has(question.category))
+    .map((question) => ({ ...question }));
 }
 
 export function createQuestionDeck(random = Math.random): Question[] {
