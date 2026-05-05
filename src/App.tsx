@@ -266,7 +266,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       : soundPlaceholders.challengeFail;
 
     const nextTeams = teams.map((team) =>
-        winnerIds.includes(team.id) ? { ...team, score: team.score + 1 } : team,
+      winnerIds.includes(team.id) ? { ...team, score: team.score + 1 } : team,
     );
 
     setTeams(nextTeams);
@@ -319,8 +319,18 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
   return (
     <main className="app-shell">
+      <div className="ambient-shapes" aria-hidden="true">
+        <span className="shape shape-ribbon" />
+        <span className="shape shape-pill" />
+        <span className="shape shape-tile" />
+        <span className="shape shape-spark" />
+      </div>
       <header className="app-header">
-        <div>
+        <div className="brand-lockup">
+          <div className="buddy-mark" aria-hidden="true">
+            <span />
+            <span />
+          </div>
           <p className="eyebrow">Lokales Partyspiel</p>
           <h1>Bet Buddy</h1>
         </div>
@@ -443,7 +453,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
       {phase === 'result' ? (
         <section className="workspace play-space" aria-labelledby="round-title">
-          <div className="round-panel">
+          <div className="round-panel hero-panel">
             <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
             <h2 id="round-title">{activeQuestion.text}</h2>
             <p className="round-meta">
@@ -453,7 +463,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           </div>
 
           {biddingState?.status === 'bidding' ? (
-            <div className="round-controls">
+            <div className="round-controls phase-panel bidding-panel">
               <p className="eyebrow">Bietrunde</p>
               <p className="turn-label">
                 {teamById.get(biddingState.activeTeamId)?.name} ist am Zug
@@ -471,7 +481,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           ) : null}
 
           {biddingState?.status === 'challenge' ? (
-            <div className="round-controls">
+            <div className="round-controls phase-panel challenge-panel">
               <p className="eyebrow">Challenge</p>
               <p className="turn-label">
                 {teamById.get(biddingState.challengeTeamId)?.name} muss{' '}
@@ -524,7 +534,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           ) : null}
 
           {biddingState === null ? (
-            <div className="round-controls">
+            <div className="round-controls phase-panel">
               <p className="turn-label">Runde ausgewertet</p>
               <button className="primary-action" onClick={startNextRound} type="button">
                 Nächste Runde
