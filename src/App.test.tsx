@@ -1,20 +1,44 @@
-import { act } from 'react';
+import { act, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
+import type { Question } from './game/types';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement;
 let root: Root;
 
-function renderApp() {
+const defaultTestDeck: Question[] = [
+  {
+    id: 'default-test-q1',
+    text: 'Wie viele Testantworten kann dein Buddy nennen?',
+    category: 'allgemeinwissen',
+    timeLimit: 30,
+    type: 'count',
+    minBid: 1,
+  },
+  {
+    id: 'default-test-q2',
+    text: 'Wie viele weitere Testantworten kann dein Buddy nennen?',
+    category: 'kreativ',
+    timeLimit: 30,
+    type: 'count',
+    minBid: 1,
+  },
+];
+
+function renderApp(appProps: ComponentProps<typeof App> = {}) {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+  const props = {
+    createDeck: () => [...defaultTestDeck],
+    ...appProps,
+  };
 
   act(() => {
-    root.render(<App />);
+    root.render(<App {...props} />);
   });
 }
 
@@ -213,5 +237,42 @@ describe('App', () => {
     startFourPlayerGame();
     expectText('Team 1 ist am Zug');
     expectText('0 Punkte');
+  });
+
+  it('uses the local question deck across rounds', () => {
+    const controlledDeck: Question[] = [
+      {
+        id: 'test-q1',
+        text: 'Wie viele Testbegriffe schafft Buddy A?',
+        category: 'allgemeinwissen',
+        timeLimit: 30,
+        type: 'count',
+        minBid: 1,
+      },
+      {
+        id: 'test-q2',
+        text: 'Wie viele Testbegriffe schafft Buddy B?',
+        category: 'kreativ',
+        timeLimit: 30,
+        type: 'count',
+        minBid: 2,
+      },
+    ];
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+    renderApp({ createDeck: () => controlledDeck });
+
+    startFourPlayerGame();
+    expectText('Wie viele Testbegriffe schafft Buddy A?');
+    clickButton('Gebot +1');
+    clickButton('Passen');
+    clickButton('Geschafft');
+    clickButton('Nächste Frage');
+
+    expectText('Wie viele Testbegriffe schafft Buddy B?');
+    expectText('Aktuelles Gebot: 2');
   });
 });

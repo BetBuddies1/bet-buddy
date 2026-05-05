@@ -8,9 +8,13 @@ import {
   validateManualTeams,
 } from './game/gameLogic';
 import type { BiddingState, Player, Question, Team } from './game/types';
+import { createQuestionDeck } from './game/questionDeck';
 import { validatePlayerName } from './security/validatePlayerName';
 
 type Phase = 'setup' | 'teams' | 'result';
+type AppProps = {
+  createDeck?: () => Question[];
+};
 
 type TeamDraft = {
   id: string;
@@ -18,40 +22,13 @@ type TeamDraft = {
   playerIds: string[];
 };
 
-const questions: Question[] = [
-  {
-    id: 'q1',
-    text: 'Wie viele europäische Hauptstädte kann dein Buddy nennen?',
-    category: 'geographie',
-    timeLimit: 30,
-    type: 'count',
-    minBid: 1,
-  },
-  {
-    id: 'q2',
-    text: 'Wie viele Dinge in dieser Küche kann dein Buddy in 30 Sekunden finden?',
-    category: 'kreativ',
-    timeLimit: 30,
-    type: 'count',
-    minBid: 1,
-  },
-  {
-    id: 'q3',
-    text: 'Wie viele Filme mit einer Zahl im Titel kann dein Buddy nennen?',
-    category: 'allgemeinwissen',
-    timeLimit: 30,
-    type: 'count',
-    minBid: 1,
-  },
-];
-
 const soundPlaceholders = {
   bid: 'sounds/bid-placeholder.mp3',
   challengeSuccess: 'sounds/challenge-success-placeholder.mp3',
   challengeFail: 'sounds/challenge-fail-placeholder.mp3',
 };
 
-export default function App() {
+export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [playerNames, setPlayerNames] = useState<string[]>([]);
@@ -60,9 +37,10 @@ export default function App() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [biddingState, setBiddingState] = useState<BiddingState | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionDeck, setQuestionDeck] = useState<Question[]>(() => createDeck());
   const [message, setMessage] = useState<string | null>(null);
 
-  const activeQuestion = questions[questionIndex % questions.length];
+  const activeQuestion = questionDeck[questionIndex % questionDeck.length];
   const teamById = useMemo(
     () => new Map(teams.map((team) => [team.id, team])),
     [teams],
@@ -133,6 +111,7 @@ export default function App() {
   }
 
   function startGame() {
+    const nextQuestionDeck = createDeck();
     const nextTeams: Team[] = teamDrafts.map((draft, index) => ({
       id: draft.id,
       name: draft.name.trim() || `Team ${index + 1}`,
@@ -147,7 +126,9 @@ export default function App() {
     }
 
     setTeams(nextTeams);
-    setBiddingState(createBiddingState(nextTeams, activeQuestion, nextTeams[0].id));
+    setQuestionDeck(nextQuestionDeck);
+    setQuestionIndex(0);
+    setBiddingState(createBiddingState(nextTeams, nextQuestionDeck[0], nextTeams[0].id));
     setPhase('result');
     setMessage(null);
   }
@@ -204,11 +185,11 @@ export default function App() {
       return;
     }
 
-    const nextQuestionIndex = (questionIndex + 1) % questions.length;
+    const nextQuestionIndex = (questionIndex + 1) % questionDeck.length;
     const firstTeam = teams[nextQuestionIndex % teams.length];
 
     setQuestionIndex(nextQuestionIndex);
-    setBiddingState(createBiddingState(teams, questions[nextQuestionIndex], firstTeam.id));
+    setBiddingState(createBiddingState(teams, questionDeck[nextQuestionIndex], firstTeam.id));
     setMessage(null);
   }
 
@@ -221,6 +202,7 @@ export default function App() {
     setTeams([]);
     setBiddingState(null);
     setQuestionIndex(0);
+    setQuestionDeck(createDeck());
     setMessage(null);
   }
 
