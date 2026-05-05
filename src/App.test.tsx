@@ -1,0 +1,171 @@
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import App from './App';
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+let container: HTMLDivElement;
+let root: Root;
+
+function renderApp() {
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+
+  act(() => {
+    root.render(<App />);
+  });
+}
+
+function clickButton(label: string) {
+  const button = [...container.querySelectorAll('button')].find(
+    (candidate) => candidate.textContent === label,
+  );
+
+  if (!button) {
+    throw new Error(`Button nicht gefunden: ${label}`);
+  }
+
+  act(() => {
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+function changeInput(label: string, value: string) {
+  const input = [...container.querySelectorAll('input')].find(
+    (candidate) => candidate.getAttribute('aria-label') === label,
+  );
+
+  if (!input) {
+    throw new Error(`Eingabefeld nicht gefunden: ${label}`);
+  }
+
+  act(() => {
+    setNativeValue(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+function changeSelect(label: string, value: string) {
+  const select = [...container.querySelectorAll('select')].find(
+    (candidate) => candidate.getAttribute('aria-label') === label,
+  );
+
+  if (!select) {
+    throw new Error(`Auswahl nicht gefunden: ${label}`);
+  }
+
+  act(() => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+function expectText(text: string) {
+  expect(container.textContent).toContain(text);
+}
+
+function fillPlayerNames(names: string[]) {
+  names.forEach((name, index) => {
+    changeInput(`Spieler ${index + 1}`, name);
+  });
+}
+
+function setNativeValue(input: HTMLInputElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(input, 'value')?.set;
+  const prototype = Object.getPrototypeOf(input) as HTMLInputElement;
+  const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+
+  if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+    prototypeValueSetter.call(input, value);
+    return;
+  }
+
+  valueSetter?.call(input, value);
+}
+
+describe('App', () => {
+  beforeEach(() => {
+    renderApp();
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('creates editable manual teams for a 4-player game', () => {
+    clickButton('4 Spieler');
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
+    clickButton('Teams setzen');
+
+    expectText('Teams manuell setzen');
+    expectText('Team 1');
+    expectText('Anna');
+    expectText('David');
+    expectText('Spiel starten');
+  });
+
+  it('creates manual teams for a 6-player game', () => {
+    clickButton('6 Spieler');
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David', 'Elif', 'Finn']);
+    clickButton('Teams setzen');
+
+    expectText('Team 3');
+    expectText('Elif');
+    expectText('Finn');
+  });
+
+  it('creates manual teams for an 8-player game', () => {
+    clickButton('8 Spieler');
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David', 'Elif', 'Finn', 'Gina', 'Hannes']);
+    clickButton('Teams setzen');
+
+    expectText('Team 4');
+    expectText('Gina');
+    expectText('Hannes');
+  });
+
+  it('rejects invalid player names before teams are created', () => {
+    clickButton('4 Spieler');
+    fillPlayerNames(['Anna<script>', 'Ben', 'Clara', 'David']);
+    clickButton('Teams setzen');
+
+    expectText(
+      'Spieler 1: Namen dürfen nur Buchstaben, Zahlen, Leerzeichen, Bindestriche und Unterstriche enthalten.',
+    );
+  });
+
+  it('rejects duplicate player assignments when teams are manually changed', () => {
+    clickButton('4 Spieler');
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
+    clickButton('Teams setzen');
+    changeSelect('Team 2 Buddy 1', 'p1');
+    clickButton('Spiel starten');
+
+    expectText('Jeder Spieler darf nur einem Team zugeordnet sein.');
+  });
+
+  it('plays a 4-player bidding round through challenge resolution', () => {
+    clickButton('4 Spieler');
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
+    clickButton('Teams setzen');
+    clickButton('Spiel starten');
+
+    expectText('Team 1 ist am Zug');
+    clickButton('Bieten +1');
+
+    expectText('Aktuelles Gebot: 2');
+    expectText('Team 2 ist am Zug');
+    clickButton('Passen');
+
+    expectText('Team 1 spielt für 2');
+    clickButton('Geschafft');
+
+    expectText('Team 1');
+    expectText('1 Punkt');
+  });
+});
