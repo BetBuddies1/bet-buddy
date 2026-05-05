@@ -920,6 +920,14 @@ h3 {
     padding: 18px;
   }
 
+  .welcome-screen {
+    padding: clamp(42px, 7vw, 56px);
+  }
+
+  .welcome-screen::before {
+    inset: 20px;
+  }
+
   .segmented-control,
   .setup-grid,
   .play-space {
