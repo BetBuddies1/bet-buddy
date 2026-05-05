@@ -179,9 +179,15 @@ describe('App', () => {
   });
 
   it('starts with a focused welcome screen before setup begins', () => {
-    expectText('Willkommen bei Bet Buddy');
+    expectText('Wer kennt seine Buddies am besten?');
+    expectText('Das lokale Partyspiel für mutige Ziele und gute Buddy-Instinkte.');
+    expectText('Bildet Teams, pokert ums Ziel und beweist, wer seine Buddies am besten einschätzt.');
     expectButtonCount('Spiel vorbereiten', 1);
     expectButtonCount('Spiel erklären', 1);
+    expect(container.querySelector('.welcome-hero-content')).not.toBeNull();
+    expectNoText('Willkommen bei Bet Buddy');
+    expectNoText('Setzt Teams, bietet mutig und zeigt, wie gut ihr eure Buddies einschätzen könnt.');
+    expectNoText('Ein lokales Teamspiel mit Fragen, mutigen Zielen und schnellen Challenges.');
     expectNoText('Spieleranzahl');
 
     openSetup();
@@ -199,7 +205,7 @@ describe('App', () => {
 
     clickButton('Zur Startseite');
 
-    expectText('Willkommen bei Bet Buddy');
+    expectText('Wer kennt seine Buddies am besten?');
   });
 
   it('shows the question as its own screen before the bidding round starts', () => {
@@ -439,7 +445,7 @@ describe('App', () => {
 
     clickButton('Startseite');
 
-    expectText('Willkommen bei Bet Buddy');
+    expectText('Wer kennt seine Buddies am besten?');
     expectButtonCount('Spiel vorbereiten', 1);
     expectNoText('Team 1 bekommt 1 Punkt.');
     expectNoText('1 Punkt');

@@ -405,7 +405,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
             </div>
           ) : (
             <p className="intro">
-              Setzt Teams, bietet mutig und zeigt, wie gut ihr eure Buddies einschätzen könnt.
+              Das lokale Partyspiel für mutige Ziele und gute Buddy-Instinkte.
             </p>
           )}
           {phase !== 'welcome' ? (
@@ -418,18 +418,20 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
       {phase === 'welcome' ? (
         <section className="workspace welcome-screen" aria-labelledby="welcome-title">
-          <p className="eyebrow">Gemeinsam am Tisch</p>
-          <h2 id="welcome-title">Willkommen bei Bet Buddy</h2>
-          <p className="screen-copy">
-            Ein lokales Teamspiel mit Fragen, mutigen Zielen und schnellen Challenges.
-          </p>
-          <div className="welcome-actions">
-            <button className="primary-action" onClick={() => setPhase('setup')} type="button">
-              Spiel vorbereiten
-            </button>
-            <button className="secondary-action" onClick={() => setPhase('rules')} type="button">
-              Spiel erklären
-            </button>
+          <div className="welcome-hero-content">
+            <p className="eyebrow">Gemeinsam am Tisch</p>
+            <h2 id="welcome-title">Wer kennt seine Buddies am besten?</h2>
+            <p className="screen-copy">
+              Bildet Teams, pokert ums Ziel und beweist, wer seine Buddies am besten einschätzt.
+            </p>
+            <div className="welcome-actions">
+              <button className="primary-action" onClick={() => setPhase('setup')} type="button">
+                Spiel vorbereiten
+              </button>
+              <button className="secondary-action" onClick={() => setPhase('rules')} type="button">
+                Spiel erklären
+              </button>
+            </div>
           </div>
         </section>
       ) : null}

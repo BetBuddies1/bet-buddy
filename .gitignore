@@ -28,6 +28,9 @@ desktop.ini
 *.swp
 *.swo
 
+# Local brainstorming mockups
+.superpowers/
+
 # TypeScript
 *.tsbuildinfo
 
