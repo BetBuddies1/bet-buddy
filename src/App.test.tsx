@@ -66,10 +66,29 @@ function expectText(text: string) {
   expect(container.textContent).toContain(text);
 }
 
+function expectNoText(text: string) {
+  expect(container.textContent).not.toContain(text);
+}
+
+function expectButtonCount(label: string, expectedCount: number) {
+  const matchingButtons = [...container.querySelectorAll('button')].filter(
+    (candidate) => candidate.textContent === label,
+  );
+
+  expect(matchingButtons).toHaveLength(expectedCount);
+}
+
 function fillPlayerNames(names: string[]) {
   names.forEach((name, index) => {
     changeInput(`Spieler ${index + 1}`, name);
   });
+}
+
+function startFourPlayerGame() {
+  clickButton('4 Spieler');
+  fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
+  clickButton('Teams setzen');
+  clickButton('Spiel starten');
 }
 
 function setNativeValue(input: HTMLInputElement, value: string) {
@@ -150,13 +169,11 @@ describe('App', () => {
   });
 
   it('plays a 4-player bidding round through challenge resolution', () => {
-    clickButton('4 Spieler');
-    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
-    clickButton('Teams setzen');
-    clickButton('Spiel starten');
+    startFourPlayerGame();
 
     expectText('Team 1 ist am Zug');
-    clickButton('Bieten +1');
+    expectButtonCount('Gebot +1', 1);
+    clickButton('Gebot +1');
 
     expectText('Aktuelles Gebot: 2');
     expectText('Team 2 ist am Zug');
@@ -167,5 +184,34 @@ describe('App', () => {
 
     expectText('Team 1');
     expectText('1 Punkt');
+    expectText('Team 1 bekommt 1 Punkt.');
+  });
+
+  it('explains the point result when the challenge fails', () => {
+    startFourPlayerGame();
+    clickButton('Gebot +1');
+    clickButton('Passen');
+    clickButton('Nicht geschafft');
+
+    expectText('Team 2 bekommt 1 Punkt.');
+  });
+
+  it('starts a new game without reloading the app', () => {
+    startFourPlayerGame();
+    clickButton('Gebot +1');
+    clickButton('Passen');
+    clickButton('Geschafft');
+    expectText('Team 1 bekommt 1 Punkt.');
+
+    clickButton('Neues Spiel');
+
+    expectText('Spiel vorbereiten');
+    expectButtonCount('4 Spieler', 1);
+    expectNoText('Team 1 bekommt 1 Punkt.');
+    expectNoText('1 Punkt');
+
+    startFourPlayerGame();
+    expectText('Team 1 ist am Zug');
+    expectText('0 Punkte');
   });
 });

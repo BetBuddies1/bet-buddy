@@ -175,6 +175,8 @@ export default function App() {
       return;
     }
 
+    const challengeTeamName =
+      teamById.get(biddingState.challengeTeamId)?.name ?? 'Das aktive Team';
     const countedValue = wasSuccessful ? biddingState.currentBid : biddingState.currentBid - 1;
     const winnerIds = resolveChallenge(
       teams,
@@ -192,7 +194,9 @@ export default function App() {
       ),
     );
     setBiddingState(null);
-    setMessage(`Sound-Platzhalter: ${sound}`);
+    setMessage(
+      `${formatPointResult(teams, winnerIds, challengeTeamName, wasSuccessful)} Sound-Platzhalter: ${sound}`,
+    );
   }
 
   function startNextQuestion() {
@@ -208,6 +212,18 @@ export default function App() {
     setMessage(null);
   }
 
+  function resetGame() {
+    setPhase('setup');
+    setPlayerCount(null);
+    setPlayerNames([]);
+    setPlayers([]);
+    setTeamDrafts([]);
+    setTeams([]);
+    setBiddingState(null);
+    setQuestionIndex(0);
+    setMessage(null);
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -215,9 +231,16 @@ export default function App() {
           <p className="eyebrow">Lokales Partyspiel</p>
           <h1>Bet Buddy</h1>
         </div>
-        <p className="intro">
-          Setzt Teams, bietet mutig und zeigt, wie gut ihr eure Buddies einschätzen könnt.
-        </p>
+        <div className="header-copy">
+          <p className="intro">
+            Setzt Teams, bietet mutig und zeigt, wie gut ihr eure Buddies einschätzen könnt.
+          </p>
+          {phase !== 'setup' ? (
+            <button className="secondary-action compact-action" onClick={resetGame} type="button">
+              Neues Spiel
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {phase === 'setup' ? (
@@ -324,7 +347,7 @@ export default function App() {
               <p className="bid-value">Aktuelles Gebot: {biddingState.currentBid}</p>
               <div className="action-row">
                 <button className="primary-action" onClick={handleRaiseBid} type="button">
-                  Bieten +1
+                  Gebot +1
                 </button>
                 <button className="secondary-action" onClick={handlePassBid} type="button">
                   Passen
@@ -399,6 +422,27 @@ function getCategoryLabel(category: Question['category']) {
   };
 
   return labels[category];
+}
+
+function formatPointResult(
+  teams: Team[],
+  winnerIds: string[],
+  challengeTeamName: string,
+  wasSuccessful: boolean,
+) {
+  if (wasSuccessful) {
+    return `${challengeTeamName} bekommt 1 Punkt.`;
+  }
+
+  const winnerNames = teams
+    .filter((team) => winnerIds.includes(team.id))
+    .map((team) => team.name);
+
+  if (winnerNames.length === 1) {
+    return `${winnerNames[0]} bekommt 1 Punkt.`;
+  }
+
+  return `${winnerNames.join(' und ')} bekommen je 1 Punkt.`;
 }
 
 function Scoreboard({ teams, players }: { teams: Team[]; players: Player[] }) {

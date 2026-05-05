@@ -114,6 +114,12 @@ h3 {
   line-height: 1.45;
 }
 
+.header-copy {
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+
 .workspace {
   width: min(100%, 1120px);
   display: grid;
@@ -196,6 +202,10 @@ h3 {
 .secondary-action {
   min-width: 148px;
   padding: 0 18px;
+}
+
+.compact-action {
+  min-width: 128px;
 }
 
 .primary-action {
@@ -288,6 +298,10 @@ h3 {
   .app-header {
     display: grid;
     gap: 12px;
+  }
+
+  .header-copy {
+    justify-items: stretch;
   }
 
   .workspace {
