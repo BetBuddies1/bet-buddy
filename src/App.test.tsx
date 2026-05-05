@@ -1,6 +1,6 @@
 import { act, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import type { Question } from './game/types';
 
@@ -118,7 +118,10 @@ function startFourPlayerGame() {
 function finishSuccessfulRound() {
   clickButton('Ziel +1');
   clickButton('Passen');
-  clickButton('Geschafft');
+  clickButton('+1');
+  clickButton('+1');
+  clickButton('Auswertung prüfen');
+  clickButton('Ergebnis bestätigen');
 }
 
 function setNativeValue(input: HTMLInputElement, value: string) {
@@ -140,6 +143,7 @@ describe('App', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     act(() => {
       root.unmount();
     });
@@ -218,10 +222,53 @@ describe('App', () => {
     clickButton('Passen');
 
     expectText('Team 1 muss 2 schaffen');
-    clickButton('Geschafft');
+    expectText('Challenge');
+    expectText('Tracker: 0 / Ziel 2');
+    clickButton('+1');
+    clickButton('+1');
+    clickButton('Auswertung prüfen');
+
+    expectText('Vorschlag: Geschafft');
+    expectText('Gezählt: 2 / Ziel 2');
+    clickButton('Ergebnis bestätigen');
 
     expectText('Team 1');
     expectText('1 Punkt');
+    expectText('Team 1 bekommt 1 Punkt.');
+  });
+
+  it('automatically suggests the result when the challenge timer ends', () => {
+    vi.useFakeTimers();
+    startFourPlayerGame();
+    clickButton('Ziel +1');
+    clickButton('Passen');
+
+    expectText('Timer: 30 Sekunden');
+    clickButton('Challenge starten');
+    clickButton('+1');
+    clickButton('+1');
+
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+
+    expectText('Timer: 0 Sekunden');
+    expectText('Vorschlag: Geschafft');
+  });
+
+  it('allows manual correction before confirming the challenge result', () => {
+    startFourPlayerGame();
+    clickButton('Ziel +1');
+    clickButton('Passen');
+    clickButton('+1');
+    clickButton('Auswertung prüfen');
+
+    expectText('Vorschlag: Nicht geschafft');
+    clickButton('+1');
+
+    expectText('Vorschlag: Geschafft');
+    clickButton('Ergebnis bestätigen');
+
     expectText('Team 1 bekommt 1 Punkt.');
   });
 
@@ -229,7 +276,8 @@ describe('App', () => {
     startFourPlayerGame();
     clickButton('Ziel +1');
     clickButton('Passen');
-    clickButton('Nicht geschafft');
+    clickButton('Auswertung prüfen');
+    clickButton('Ergebnis bestätigen');
 
     expectText('Team 2 bekommt 1 Punkt.');
   });
@@ -297,7 +345,10 @@ describe('App', () => {
     expectText('Wie viele Testbegriffe schafft Buddy A?');
     clickButton('Ziel +1');
     clickButton('Passen');
-    clickButton('Geschafft');
+    clickButton('+1');
+    clickButton('+1');
+    clickButton('Auswertung prüfen');
+    clickButton('Ergebnis bestätigen');
     clickButton('Nächste Runde');
 
     expectText('Wie viele Testbegriffe schafft Buddy B?');

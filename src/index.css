@@ -246,7 +246,9 @@ h3 {
 
 .round-meta,
 .turn-label,
-.bid-value {
+.bid-value,
+.timer-value,
+.tracker-value {
   margin-bottom: 0;
   color: var(--muted);
 }
@@ -260,6 +262,21 @@ h3 {
 .bid-value {
   font-size: 18px;
   font-weight: 800;
+}
+
+.timer-value,
+.tracker-value {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.tracker-action {
+  min-width: 88px;
+}
+
+.challenge-review {
+  display: grid;
+  gap: 10px;
 }
 
 .scoreboard {

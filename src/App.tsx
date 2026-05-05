@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   createBiddingState,
   getEligiblePlayerCounts,
@@ -22,6 +22,12 @@ type TeamDraft = {
   playerIds: string[];
 };
 
+type ChallengeState = {
+  status: 'ready' | 'running' | 'review';
+  count: number;
+  secondsLeft: number;
+};
+
 const soundPlaceholders = {
   bid: 'sounds/bid-placeholder.mp3',
   challengeSuccess: 'sounds/challenge-success-placeholder.mp3',
@@ -38,6 +44,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const [teamDrafts, setTeamDrafts] = useState<TeamDraft[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [biddingState, setBiddingState] = useState<BiddingState | null>(null);
+  const [challengeState, setChallengeState] = useState<ChallengeState | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [questionDeck, setQuestionDeck] = useState<Question[]>(() => createDeck());
   const [message, setMessage] = useState<string | null>(null);
@@ -48,6 +55,35 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     () => new Map(teams.map((team) => [team.id, team])),
     [teams],
   );
+
+  useEffect(() => {
+    if (challengeState?.status !== 'running') {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setChallengeState((currentChallengeState) => {
+        if (currentChallengeState?.status !== 'running') {
+          return currentChallengeState;
+        }
+
+        if (currentChallengeState.secondsLeft <= 1) {
+          return {
+            ...currentChallengeState,
+            secondsLeft: 0,
+            status: 'review',
+          };
+        }
+
+        return {
+          ...currentChallengeState,
+          secondsLeft: currentChallengeState.secondsLeft - 1,
+        };
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [challengeState?.status]);
 
   function choosePlayerCount(count: number) {
     setPlayerCount(count);
@@ -137,6 +173,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setQuestionDeck(nextQuestionDeck);
     setQuestionIndex(0);
     setBiddingState(createBiddingState(nextTeams, nextQuestionDeck[0], nextTeams[0].id));
+    setChallengeState(null);
     setPhase('result');
     setMessage(null);
   }
@@ -155,11 +192,62 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       return;
     }
 
-    setBiddingState(passBid(biddingState, teams, biddingState.activeTeamId));
+    const nextBiddingState = passBid(biddingState, teams, biddingState.activeTeamId);
+
+    setBiddingState(nextBiddingState);
+    setChallengeState(
+      nextBiddingState.status === 'challenge'
+        ? {
+            count: 0,
+            secondsLeft: activeQuestion.timeLimit,
+            status: 'ready',
+          }
+        : null,
+    );
     setMessage(null);
   }
 
-  function handleChallengeResult(wasSuccessful: boolean) {
+  function increaseTracker() {
+    setChallengeState((currentChallengeState) =>
+      currentChallengeState === null
+        ? currentChallengeState
+        : { ...currentChallengeState, count: currentChallengeState.count + 1 },
+    );
+  }
+
+  function decreaseTracker() {
+    setChallengeState((currentChallengeState) =>
+      currentChallengeState === null
+        ? currentChallengeState
+        : { ...currentChallengeState, count: Math.max(0, currentChallengeState.count - 1) },
+    );
+  }
+
+  function startChallengeTimer() {
+    setChallengeState((currentChallengeState) =>
+      currentChallengeState?.status === 'ready'
+        ? { ...currentChallengeState, status: 'running' }
+        : currentChallengeState,
+    );
+  }
+
+  function reviewChallengeResult() {
+    setChallengeState((currentChallengeState) =>
+      currentChallengeState === null
+        ? currentChallengeState
+        : { ...currentChallengeState, status: 'review' },
+    );
+  }
+
+  function confirmChallengeResult() {
+    if (biddingState?.status !== 'challenge' || challengeState === null) {
+      return;
+    }
+
+    applyChallengeResult(challengeState.count >= biddingState.currentBid);
+  }
+
+  function applyChallengeResult(wasSuccessful: boolean) {
     if (biddingState?.status !== 'challenge') {
       return;
     }
@@ -183,6 +271,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
     setTeams(nextTeams);
     setBiddingState(null);
+    setChallengeState(null);
 
     if (currentRound >= roundCount) {
       setPhase('finished');
@@ -202,6 +291,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     const firstTeam = teams[nextQuestionIndex % teams.length];
 
     setQuestionIndex(nextQuestionIndex);
+    setChallengeState(null);
     setBiddingState(
       createBiddingState(
         teams,
@@ -221,6 +311,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setTeamDrafts([]);
     setTeams([]);
     setBiddingState(null);
+    setChallengeState(null);
     setQuestionIndex(0);
     setQuestionDeck(createDeck());
     setMessage(null);
@@ -381,26 +472,54 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
           {biddingState?.status === 'challenge' ? (
             <div className="round-controls">
+              <p className="eyebrow">Challenge</p>
               <p className="turn-label">
                 {teamById.get(biddingState.challengeTeamId)?.name} muss{' '}
                 {biddingState.currentBid} schaffen
               </p>
-              <div className="action-row">
-                <button
-                  className="primary-action"
-                  onClick={() => handleChallengeResult(true)}
-                  type="button"
-                >
-                  Geschafft
-                </button>
-                <button
-                  className="secondary-action"
-                  onClick={() => handleChallengeResult(false)}
-                  type="button"
-                >
-                  Nicht geschafft
-                </button>
-              </div>
+              {challengeState !== null ? (
+                <>
+                  <p className="timer-value">Timer: {challengeState.secondsLeft} Sekunden</p>
+                  <p className="tracker-value">
+                    Tracker: {challengeState.count} / Ziel {biddingState.currentBid}
+                  </p>
+                  <div className="action-row">
+                    <button className="secondary-action tracker-action" onClick={decreaseTracker} type="button">
+                      -1
+                    </button>
+                    <button className="primary-action tracker-action" onClick={increaseTracker} type="button">
+                      +1
+                    </button>
+                  </div>
+                  {challengeState.status !== 'review' ? (
+                    <div className="action-row">
+                      {challengeState.status === 'ready' ? (
+                        <button className="primary-action" onClick={startChallengeTimer} type="button">
+                          Challenge starten
+                        </button>
+                      ) : null}
+                      <button className="secondary-action" onClick={reviewChallengeResult} type="button">
+                        Auswertung prüfen
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="challenge-review">
+                      <p className="bid-value">
+                        Vorschlag:{' '}
+                        {challengeState.count >= biddingState.currentBid
+                          ? 'Geschafft'
+                          : 'Nicht geschafft'}
+                      </p>
+                      <p className="round-meta">
+                        Gezählt: {challengeState.count} / Ziel {biddingState.currentBid}
+                      </p>
+                      <button className="primary-action" onClick={confirmChallengeResult} type="button">
+                        Ergebnis bestätigen
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : null}
             </div>
           ) : null}
 
