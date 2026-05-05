@@ -439,19 +439,22 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       {phase === 'rules' ? (
         <section className="workspace rules-screen" aria-labelledby="rules-title">
           <p className="eyebrow">Kurz erklärt</p>
-          <h2 id="rules-title">So funktioniert Bet Buddy</h2>
+          <h2 id="rules-title">So läuft Bet Buddy</h2>
           <div className="rules-grid">
             <article>
-              <h3>1. Teams bieten ein Ziel</h3>
-              <p>In der Bietrunde erhöht das aktive Team das Ziel oder passt.</p>
+              <h3>1. Ziel hochpokern</h3>
+              <p>In der Bietrunde erhöht ihr das Ziel oder passt. Wer am höchsten bietet, muss gleich liefern.</p>
             </article>
             <article>
-              <h3>2. Eine Challenge entscheidet</h3>
-              <p>Das Team mit dem höchsten Ziel muss beweisen, dass es die Aufgabe schafft.</p>
+              <h3>2. Challenge liefern</h3>
+              <p>
+                Timer an, Antworten raus, alle fiebern mit. Das Team mit dem höchsten Ziel muss zeigen,
+                dass es nicht nur große Töne spuckt.
+              </p>
             </article>
             <article>
-              <h3>3. Tracker zählt die Antworten</h3>
-              <p>Der Tracker zählt live mit. Danach kann das Ergebnis manuell korrigiert werden.</p>
+              <h3>3. Zählen und fair prüfen</h3>
+              <p>Der Tracker zählt live mit. Wenn etwas verrutscht, korrigiert ihr kurz und die App vergibt den Punkt.</p>
             </article>
           </div>
           <div className="action-row">

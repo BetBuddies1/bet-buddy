@@ -201,9 +201,16 @@ describe('App', () => {
   it('shows a short explanation screen from the welcome screen', () => {
     clickButton('Spiel erklären');
 
-    expectText('So funktioniert Bet Buddy');
-    expectText('Teams bieten ein Ziel');
-    expectText('Tracker zählt die Antworten');
+    expectText('So läuft Bet Buddy');
+    expectText('Ziel hochpokern');
+    expectText('In der Bietrunde erhöht ihr das Ziel oder passt. Wer am höchsten bietet, muss gleich liefern.');
+    expectText('Challenge liefern');
+    expectText('Timer an, Antworten raus, alle fiebern mit. Das Team mit dem höchsten Ziel muss zeigen, dass es nicht nur große Töne spuckt.');
+    expectText('Zählen und fair prüfen');
+    expectText('Der Tracker zählt live mit. Wenn etwas verrutscht, korrigiert ihr kurz und die App vergibt den Punkt.');
+    expectNoText('Teams bieten ein Ziel');
+    expectNoText('Eine Challenge entscheidet');
+    expectNoText('Tracker zählt die Antworten');
     expectButtonCount('Zur Startseite', 1);
 
     clickButton('Zur Startseite');
