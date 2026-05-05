@@ -13,6 +13,7 @@ import { validatePlayerName } from './security/validatePlayerName';
 
 type Phase =
   | 'welcome'
+  | 'rules'
   | 'setup'
   | 'teams'
   | 'roundIntro'
@@ -76,6 +77,12 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     [teams],
   );
   const usesTableMode = teams.length === 2;
+  const isGamePhase =
+    phase === 'roundIntro' ||
+    phase === 'bidding' ||
+    phase === 'challenge' ||
+    phase === 'roundScore' ||
+    phase === 'finished';
 
   useEffect(() => {
     if (challengeState?.status !== 'running') {
@@ -378,7 +385,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
         <span className="shape shape-tile" />
         <span className="shape shape-spark" />
       </div>
-      <header className="app-header">
+      <header className={`app-header ${isGamePhase ? 'game-header' : ''}`}>
         <div className="brand-lockup">
           <div className="buddy-mark" aria-hidden="true">
             <span />
@@ -388,12 +395,19 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           <h1>Bet Buddy</h1>
         </div>
         <div className="header-copy">
-          <p className="intro">
-            Setzt Teams, bietet mutig und zeigt, wie gut ihr eure Buddies einschätzen könnt.
-          </p>
+          {isGamePhase && teams.length > 0 ? (
+            <div className="game-hud" aria-label="Spielstatus">
+              <span>Runde {Math.min(currentRound, roundCount)} von {roundCount}</span>
+              <span>{formatScoreSummary(teams)}</span>
+            </div>
+          ) : (
+            <p className="intro">
+              Setzt Teams, bietet mutig und zeigt, wie gut ihr eure Buddies einschätzen könnt.
+            </p>
+          )}
           {phase !== 'welcome' ? (
-            <button className="secondary-action compact-action" onClick={resetGame} type="button">
-              Neues Spiel
+            <button className="secondary-action header-home-action" onClick={resetGame} type="button">
+              Startseite
             </button>
           ) : null}
         </div>
@@ -406,9 +420,43 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           <p className="screen-copy">
             Ein lokales Teamspiel mit Fragen, mutigen Zielen und schnellen Challenges.
           </p>
-          <button className="primary-action" onClick={() => setPhase('setup')} type="button">
-            Spiel vorbereiten
-          </button>
+          <div className="welcome-actions">
+            <button className="primary-action" onClick={() => setPhase('setup')} type="button">
+              Spiel vorbereiten
+            </button>
+            <button className="secondary-action" onClick={() => setPhase('rules')} type="button">
+              Spiel erklären
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {phase === 'rules' ? (
+        <section className="workspace rules-screen" aria-labelledby="rules-title">
+          <p className="eyebrow">Kurz erklärt</p>
+          <h2 id="rules-title">So funktioniert Bet Buddy</h2>
+          <div className="rules-grid">
+            <article>
+              <h3>1. Teams bieten ein Ziel</h3>
+              <p>In der Bietrunde erhöht das aktive Team das Ziel oder passt.</p>
+            </article>
+            <article>
+              <h3>2. Eine Challenge entscheidet</h3>
+              <p>Das Team mit dem höchsten Ziel muss beweisen, dass es die Aufgabe schafft.</p>
+            </article>
+            <article>
+              <h3>3. Tracker zählt die Antworten</h3>
+              <p>Der Tracker zählt live mit. Danach kann das Ergebnis manuell korrigiert werden.</p>
+            </article>
+          </div>
+          <div className="action-row">
+            <button className="secondary-action" onClick={() => setPhase('welcome')} type="button">
+              Zur Startseite
+            </button>
+            <button className="primary-action" onClick={() => setPhase('setup')} type="button">
+              Spiel vorbereiten
+            </button>
+          </div>
         </section>
       ) : null}
 
@@ -564,32 +612,25 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       {phase === 'bidding' && biddingState?.status === 'bidding' ? (
         usesTableMode ? (
           <section className="workspace table-mode" aria-label="Tischmodus für zwei Teams">
-            <BiddingTablePanel
+            <TableSideControls
               className="is-opponent"
               currentBid={biddingState.currentBid}
-              question={activeQuestion}
+              onPass={handlePassBid}
+              onRaise={handleRaiseBid}
               teamName={getOtherTeamName(teams, biddingState.activeTeamId)}
             />
-            <div className="table-core phase-panel bidding-panel">
-              <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
-              <p className="eyebrow">Bietrunde</p>
-              <p className="turn-label">
-                {teamById.get(biddingState.activeTeamId)?.name} ist am Zug
-              </p>
-              <p className="bid-value">Aktuelles Ziel: {biddingState.currentBid}</p>
-              <div className="action-row">
-                <button className="primary-action" onClick={handleRaiseBid} type="button">
-                  Ziel +1
-                </button>
-                <button className="secondary-action" onClick={handlePassBid} type="button">
-                  Passen
-                </button>
-              </div>
-            </div>
-            <BiddingTablePanel
+            <BiddingCenterQuestion
+              activeTeamName={teamById.get(biddingState.activeTeamId)?.name ?? 'Aktives Team'}
+              currentBid={biddingState.currentBid}
+              currentRound={currentRound}
+              question={activeQuestion}
+              roundCount={roundCount}
+            />
+            <TableSideControls
               className="is-active"
               currentBid={biddingState.currentBid}
-              question={activeQuestion}
+              onPass={handlePassBid}
+              onRaise={handleRaiseBid}
               teamName={teamById.get(biddingState.activeTeamId)?.name ?? 'Aktives Team'}
             />
           </section>
@@ -739,22 +780,78 @@ function QuestionTablePanel({
   );
 }
 
-function BiddingTablePanel({
+function BiddingCenterQuestion({
+  activeTeamName,
+  currentBid,
+  currentRound,
+  question,
+  roundCount,
+}: {
+  activeTeamName: string;
+  currentBid: number;
+  currentRound: number;
+  question: Question;
+  roundCount: number;
+}) {
+  return (
+    <div className="table-center-question">
+      <div className="table-question-copy is-opponent" aria-hidden="true">
+        <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
+        <p className="eyebrow">Bietrunde</p>
+        <p className="turn-label">{activeTeamName} ist am Zug</p>
+        <p className="table-question-text">{question.text}</p>
+        <p className="bid-value">Aktuelles Ziel: {currentBid}</p>
+      </div>
+      <div className="table-question-copy is-active">
+        <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
+        <p className="eyebrow">Bietrunde</p>
+        <p className="turn-label">{activeTeamName} ist am Zug</p>
+        <p className="table-question-text">{question.text}</p>
+        <p className="bid-value">Aktuelles Ziel: {currentBid}</p>
+      </div>
+    </div>
+  );
+}
+
+function TableSideControls({
   className,
   currentBid,
-  question,
+  onPass,
+  onRaise,
   teamName,
 }: {
   className: string;
   currentBid: number;
-  question: Question;
+  onPass: () => void;
+  onRaise: () => void;
   teamName: string;
 }) {
   return (
-    <div className={`table-team-panel ${className}`} aria-hidden={className === 'is-opponent'}>
-      <p className="eyebrow">{teamName}</p>
-      <p className="table-question-text">{question.text}</p>
-      <p className="bid-value">Ziel {currentBid}</p>
+    <div className={`table-side-controls ${className}`}>
+      <div>
+        <p className="eyebrow">{teamName}</p>
+        <p className="bid-value">Ziel {currentBid}</p>
+      </div>
+      <div className="table-side-actions">
+        <button
+          aria-label="Ziel +1"
+          className="primary-action table-side-action-button"
+          data-action="raise"
+          onClick={onRaise}
+          type="button"
+        >
+          Ziel +1
+        </button>
+        <button
+          aria-label="Passen"
+          className="secondary-action table-side-action-button"
+          data-action="pass"
+          onClick={onPass}
+          type="button"
+        >
+          Passen
+        </button>
+      </div>
     </div>
   );
 }
@@ -797,6 +894,10 @@ function formatGameResult(teams: Team[]) {
   return `Unentschieden zwischen ${winningTeams
     .map((team) => team.name)
     .join(' und ')} mit ${highestScore} ${highestScore === 1 ? 'Punkt' : 'Punkten'}.`;
+}
+
+function formatScoreSummary(teams: Team[]) {
+  return teams.map((team) => `${team.name} ${team.score}`).join(' · ');
 }
 
 function Scoreboard({ teams, players }: { teams: Team[]; players: Player[] }) {

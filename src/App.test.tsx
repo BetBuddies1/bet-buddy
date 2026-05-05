@@ -44,7 +44,7 @@ function renderApp(appProps: ComponentProps<typeof App> = {}) {
 
 function clickButton(label: string) {
   const button = [...container.querySelectorAll('button')].find(
-    (candidate) => candidate.textContent === label,
+    (candidate) => candidate.textContent === label || candidate.getAttribute('aria-label') === label,
   );
 
   if (!button) {
@@ -88,7 +88,7 @@ function changeSelect(label: string, value: string) {
 
 function expectButtonSelected(label: string, expectedSelected: boolean) {
   const button = [...container.querySelectorAll('button')].find(
-    (candidate) => candidate.textContent === label,
+    (candidate) => candidate.textContent === label || candidate.getAttribute('aria-label') === label,
   );
 
   if (!button) {
@@ -108,7 +108,7 @@ function expectNoText(text: string) {
 
 function expectButtonCount(label: string, expectedCount: number) {
   const matchingButtons = [...container.querySelectorAll('button')].filter(
-    (candidate) => candidate.textContent === label,
+    (candidate) => candidate.textContent === label || candidate.getAttribute('aria-label') === label,
   );
 
   expect(matchingButtons).toHaveLength(expectedCount);
@@ -181,11 +181,25 @@ describe('App', () => {
   it('starts with a focused welcome screen before setup begins', () => {
     expectText('Willkommen bei Bet Buddy');
     expectButtonCount('Spiel vorbereiten', 1);
+    expectButtonCount('Spiel erklären', 1);
     expectNoText('Spieleranzahl');
 
     openSetup();
 
     expectText('Spieleranzahl');
+  });
+
+  it('shows a short explanation screen from the welcome screen', () => {
+    clickButton('Spiel erklären');
+
+    expectText('So funktioniert Bet Buddy');
+    expectText('Teams bieten ein Ziel');
+    expectText('Tracker zählt die Antworten');
+    expectButtonCount('Zur Startseite', 1);
+
+    clickButton('Zur Startseite');
+
+    expectText('Willkommen bei Bet Buddy');
   });
 
   it('shows the question as its own screen before the bidding round starts', () => {
@@ -206,8 +220,41 @@ describe('App', () => {
     startFourPlayerGame();
 
     expect(container.querySelector('.table-mode')).not.toBeNull();
-    expect(container.querySelector('.table-team-panel.is-opponent')).not.toBeNull();
-    expect(container.querySelector('.table-team-panel.is-active')).not.toBeNull();
+    expect(container.querySelector('.table-side-controls.is-opponent')).not.toBeNull();
+    expect(container.querySelector('.table-center-question')).not.toBeNull();
+    expect(container.querySelector('.table-side-controls.is-active')).not.toBeNull();
+  });
+
+  it('shows a compact game header with round and score while playing', () => {
+    prepareFourPlayerRound();
+
+    const header = container.querySelector('.app-header');
+    const hud = container.querySelector('.game-hud');
+
+    expect(header?.classList.contains('game-header')).toBe(true);
+    expect(hud?.textContent).toContain('Runde 1 von 6');
+    expect(hud?.textContent).toContain('Team 1 0');
+    expect(hud?.textContent).toContain('Team 2 0');
+  });
+
+  it('shows table mode controls at both table ends and the question in the center', () => {
+    startFourPlayerGame();
+
+    const raiseButtons = container.querySelectorAll(
+      'button.table-side-action-button[data-action="raise"]',
+    );
+    const passButtons = container.querySelectorAll(
+      'button.table-side-action-button[data-action="pass"]',
+    );
+    const mirroredQuestion = container.querySelector('.table-question-copy.is-opponent');
+    const mainQuestion = container.querySelector('.table-question-copy.is-active');
+
+    expect(raiseButtons).toHaveLength(2);
+    expect(passButtons).toHaveLength(2);
+    expect(mirroredQuestion?.textContent).toContain('Wie viele Testantworten kann dein Buddy nennen?');
+    expect(mirroredQuestion?.textContent).toContain('Team 1 ist am Zug');
+    expect(mainQuestion?.textContent).toContain('Wie viele Testantworten kann dein Buddy nennen?');
+    expect(mainQuestion?.textContent).toContain('Aktuelles Ziel: 1');
   });
 
   it('creates editable manual teams for a 4-player game', () => {
@@ -313,7 +360,7 @@ describe('App', () => {
 
     expectText('Bietrunde');
     expectText('Team 1 ist am Zug');
-    expectButtonCount('Ziel +1', 1);
+    expectButtonCount('Ziel +1', 2);
     clickButton('Ziel +1');
 
     expectText('Aktuelles Ziel: 2');
@@ -386,7 +433,10 @@ describe('App', () => {
     finishSuccessfulRound();
     expectText('Team 1 bekommt 1 Punkt.');
 
-    clickButton('Neues Spiel');
+    expectButtonCount('Startseite', 1);
+    expectNoText('Neues Spiel');
+
+    clickButton('Startseite');
 
     expectText('Willkommen bei Bet Buddy');
     expectButtonCount('Spiel vorbereiten', 1);
