@@ -403,11 +403,11 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
                 <span className="score-value">{formatScoreSummary(teams)}</span>
               </span>
             </div>
-          ) : (
+          ) : phase !== 'welcome' ? (
             <p className="intro">
               Das lokale Partyspiel für mutige Ziele und gute Buddy-Instinkte.
             </p>
-          )}
+          ) : null}
           {phase !== 'welcome' ? (
             <button className="secondary-action header-home-action" onClick={resetGame} type="button">
               Startseite
