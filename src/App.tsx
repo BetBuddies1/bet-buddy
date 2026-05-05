@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   createBiddingState,
+  endBidTurn,
   getEligiblePlayerCounts,
   passBid,
   raiseBid,
@@ -244,6 +245,15 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
     setBiddingState(raiseBid(biddingState, teams, biddingState.activeTeamId));
     setMessage(`Sound-Platzhalter: ${soundPlaceholders.bid}`);
+  }
+
+  function handleEndBidTurn() {
+    if (biddingState?.status !== 'bidding') {
+      return;
+    }
+
+    setBiddingState(endBidTurn(biddingState, teams, biddingState.activeTeamId));
+    setMessage(null);
   }
 
   function handlePassBid() {
@@ -623,23 +633,24 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
             <TableSideControls
               className="is-opponent"
               currentBid={biddingState.currentBid}
+              isActive={teams[1]?.id === biddingState.activeTeamId}
+              onEndTurn={handleEndBidTurn}
               onPass={handlePassBid}
               onRaise={handleRaiseBid}
-              teamName={getOtherTeamName(teams, biddingState.activeTeamId)}
+              team={teams[1]}
             />
             <BiddingCenterQuestion
-              activeTeamName={teamById.get(biddingState.activeTeamId)?.name ?? 'Aktives Team'}
               currentBid={biddingState.currentBid}
-              currentRound={currentRound}
               question={activeQuestion}
-              roundCount={roundCount}
             />
             <TableSideControls
               className="is-active"
               currentBid={biddingState.currentBid}
+              isActive={teams[0]?.id === biddingState.activeTeamId}
+              onEndTurn={handleEndBidTurn}
               onPass={handlePassBid}
               onRaise={handleRaiseBid}
-              teamName={teamById.get(biddingState.activeTeamId)?.name ?? 'Aktives Team'}
+              team={teams[0]}
             />
           </section>
         ) : (
@@ -654,6 +665,9 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               <div className="action-row">
                 <button className="primary-action" onClick={handleRaiseBid} type="button">
                   Ziel +1
+                </button>
+                <button className="secondary-action" onClick={handleEndBidTurn} type="button">
+                  Weitergeben
                 </button>
                 <button className="secondary-action" onClick={handlePassBid} type="button">
                   Passen
@@ -762,10 +776,6 @@ function createInitialTeamDrafts(players: Player[]): TeamDraft[] {
   }));
 }
 
-function getOtherTeamName(teams: Team[], activeTeamId: string) {
-  return teams.find((team) => team.id !== activeTeamId)?.name ?? 'Anderes Team';
-}
-
 function QuestionTablePanel({
   className,
   currentRound,
@@ -789,31 +799,21 @@ function QuestionTablePanel({
 }
 
 function BiddingCenterQuestion({
-  activeTeamName,
   currentBid,
-  currentRound,
   question,
-  roundCount,
 }: {
-  activeTeamName: string;
   currentBid: number;
-  currentRound: number;
   question: Question;
-  roundCount: number;
 }) {
   return (
     <div className="table-center-question">
       <div className="table-question-copy is-opponent" aria-hidden="true">
-        <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
         <p className="eyebrow">Bietrunde</p>
-        <p className="turn-label">{activeTeamName} ist am Zug</p>
         <p className="table-question-text">{question.text}</p>
         <p className="bid-value">Aktuelles Ziel: {currentBid}</p>
       </div>
       <div className="table-question-copy is-active">
-        <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
         <p className="eyebrow">Bietrunde</p>
-        <p className="turn-label">{activeTeamName} ist am Zug</p>
         <p className="table-question-text">{question.text}</p>
         <p className="bid-value">Aktuelles Ziel: {currentBid}</p>
       </div>
@@ -824,42 +824,61 @@ function BiddingCenterQuestion({
 function TableSideControls({
   className,
   currentBid,
+  isActive,
+  onEndTurn,
   onPass,
   onRaise,
-  teamName,
+  team,
 }: {
   className: string;
   currentBid: number;
+  isActive: boolean;
+  onEndTurn: () => void;
   onPass: () => void;
   onRaise: () => void;
-  teamName: string;
+  team: Team | undefined;
 }) {
   return (
-    <div className={`table-side-controls ${className}`}>
+    <div
+      className={`table-side-controls ${className} ${isActive ? 'has-turn' : 'is-waiting'}`}
+      data-active={isActive ? 'true' : 'false'}
+      data-team-id={team?.id}
+    >
       <div>
-        <p className="eyebrow">{teamName}</p>
+        <p className="eyebrow">{team?.name ?? 'Team'}</p>
         <p className="bid-value">Ziel {currentBid}</p>
       </div>
-      <div className="table-side-actions">
-        <button
-          aria-label="Ziel +1"
-          className="primary-action table-side-action-button"
-          data-action="raise"
-          onClick={onRaise}
-          type="button"
-        >
-          Ziel +1
-        </button>
-        <button
-          aria-label="Passen"
-          className="secondary-action table-side-action-button"
-          data-action="pass"
-          onClick={onPass}
-          type="button"
-        >
-          Passen
-        </button>
-      </div>
+      {isActive ? (
+        <div className="table-side-actions">
+          <button
+            aria-label="Ziel +1"
+            className="primary-action table-side-action-button"
+            data-action="raise"
+            onClick={onRaise}
+            type="button"
+          >
+            Ziel +1
+          </button>
+          <button
+            aria-label="Weitergeben"
+            className="secondary-action table-side-action-button"
+            data-action="handoff"
+            onClick={onEndTurn}
+            type="button"
+          >
+            Weitergeben
+          </button>
+          <button
+            aria-label="Passen"
+            className="secondary-action table-side-action-button"
+            data-action="pass"
+            onClick={onPass}
+            type="button"
+          >
+            Passen
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

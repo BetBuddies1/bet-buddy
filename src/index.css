@@ -820,6 +820,19 @@ h3 {
   gap: 14px;
 }
 
+.table-side-controls.is-waiting {
+  grid-template-columns: 1fr;
+  min-height: 112px;
+  opacity: 0.72;
+}
+
+.table-side-controls.has-turn {
+  border-color: var(--line-strong);
+  box-shadow:
+    0 18px 40px rgb(0 0 0 / 18%),
+    inset 0 0 34px rgb(112 224 0 / 10%);
+}
+
 .table-side-controls.is-opponent {
   transform: rotate(180deg);
 }
@@ -830,7 +843,7 @@ h3 {
 
 .table-side-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 

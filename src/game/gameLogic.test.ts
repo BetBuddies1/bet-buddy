@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createBiddingState,
+  endBidTurn,
   getEligiblePlayerCounts,
   passBid,
   raiseBid,
@@ -104,12 +105,26 @@ describe('gameLogic', () => {
     });
   });
 
-  it('raises the bid for the active team and moves to the next active team', () => {
+  it('raises the bid for the active team without ending the turn', () => {
     const bidding = createBiddingState(teams, question, 't1');
 
     expect(raiseBid(bidding, teams, 't1')).toEqual({
-      activeTeamId: 't2',
+      activeTeamId: 't1',
       currentBid: 2,
+      highestBidTeamId: 't1',
+      passedTeamIds: [],
+      status: 'bidding',
+    });
+  });
+
+  it('lets the active team raise multiple times before handing over the turn', () => {
+    const bidding = createBiddingState(teams, question, 't1');
+    const firstRaise = raiseBid(bidding, teams, 't1');
+    const secondRaise = raiseBid(firstRaise, teams, 't1');
+
+    expect(endBidTurn(secondRaise, teams, 't1')).toEqual({
+      activeTeamId: 't2',
+      currentBid: 3,
       highestBidTeamId: 't1',
       passedTeamIds: [],
       status: 'bidding',
@@ -120,8 +135,9 @@ describe('gameLogic', () => {
     const twoTeams = teams.slice(0, 2);
     const bidding = createBiddingState(twoTeams, question, 't1');
     const raised = raiseBid(bidding, twoTeams, 't1');
+    const handedOver = endBidTurn(raised, twoTeams, 't1');
 
-    expect(passBid(raised, twoTeams, 't2')).toEqual({
+    expect(passBid(handedOver, twoTeams, 't2')).toEqual({
       activeTeamId: null,
       challengeTeamId: 't1',
       currentBid: 2,
@@ -138,7 +154,8 @@ describe('gameLogic', () => {
     ];
     const bidding = createBiddingState(fourTeams, question, 't1');
     const raised = raiseBid(bidding, fourTeams, 't1');
-    const firstPass = passBid(raised, fourTeams, 't2');
+    const handedOver = endBidTurn(raised, fourTeams, 't1');
+    const firstPass = passBid(handedOver, fourTeams, 't2');
     const secondPass = passBid(firstPass, fourTeams, 't3');
 
     expect(secondPass).toEqual({
@@ -170,8 +187,9 @@ describe('gameLogic', () => {
   it('keeps bidding open while more than one team has not passed', () => {
     const bidding = createBiddingState(teams, question, 't1');
     const raised = raiseBid(bidding, teams, 't1');
+    const handedOver = endBidTurn(raised, teams, 't1');
 
-    expect(passBid(raised, teams, 't2')).toEqual({
+    expect(passBid(handedOver, teams, 't2')).toEqual({
       activeTeamId: 't3',
       currentBid: 2,
       highestBidTeamId: 't1',
@@ -183,7 +201,8 @@ describe('gameLogic', () => {
   it('moves to challenge when only one team remains after passing', () => {
     const bidding = createBiddingState(teams, question, 't1');
     const raised = raiseBid(bidding, teams, 't1');
-    const firstPass = passBid(raised, teams, 't2');
+    const handedOver = endBidTurn(raised, teams, 't1');
+    const firstPass = passBid(handedOver, teams, 't2');
 
     expect(passBid(firstPass, teams, 't3')).toEqual({
       activeTeamId: null,

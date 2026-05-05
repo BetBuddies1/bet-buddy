@@ -114,6 +114,15 @@ function expectButtonCount(label: string, expectedCount: number) {
   expect(matchingButtons).toHaveLength(expectedCount);
 }
 
+function expectActiveTableTeam(teamId: string) {
+  expect(container.querySelector(`.table-side-controls[data-team-id="${teamId}"]`)?.getAttribute('data-active')).toBe(
+    'true',
+  );
+  expect(container.querySelectorAll('button.table-side-action-button[data-action="raise"]')).toHaveLength(1);
+  expect(container.querySelectorAll('button.table-side-action-button[data-action="handoff"]')).toHaveLength(1);
+  expect(container.querySelectorAll('button.table-side-action-button[data-action="pass"]')).toHaveLength(1);
+}
+
 function fillPlayerNames(names: string[]) {
   names.forEach((name, index) => {
     changeInput(`Spieler ${index + 1}`, name);
@@ -145,6 +154,7 @@ function startFourPlayerGame() {
 
 function finishSuccessfulRound() {
   clickButton('Ziel +1');
+  clickButton('Weitergeben');
   clickButton('Passen');
   clickButton('+1');
   clickButton('+1');
@@ -254,7 +264,7 @@ describe('App', () => {
     expect(score?.textContent).toContain('Team 1 0:0 Team 2');
   });
 
-  it('shows table mode controls at both table ends and the question in the center', () => {
+  it('shows only the active table side controls and keeps the question in the center', () => {
     startFourPlayerGame();
 
     const raiseButtons = container.querySelectorAll(
@@ -265,13 +275,45 @@ describe('App', () => {
     );
     const mirroredQuestion = container.querySelector('.table-question-copy.is-opponent');
     const mainQuestion = container.querySelector('.table-question-copy.is-active');
+    const teamOneSide = container.querySelector('.table-side-controls[data-team-id="t1"]');
+    const teamTwoSide = container.querySelector('.table-side-controls[data-team-id="t2"]');
 
-    expect(raiseButtons).toHaveLength(2);
-    expect(passButtons).toHaveLength(2);
+    expect(raiseButtons).toHaveLength(1);
+    expect(passButtons).toHaveLength(1);
+    expect(teamOneSide?.getAttribute('data-active')).toBe('true');
+    expect(teamTwoSide?.getAttribute('data-active')).toBe('false');
+    expect(teamOneSide?.querySelectorAll('button.table-side-action-button')).toHaveLength(3);
+    expect(teamTwoSide?.querySelectorAll('button.table-side-action-button')).toHaveLength(0);
     expect(mirroredQuestion?.textContent).toContain('Wie viele Testantworten kann dein Buddy nennen?');
-    expect(mirroredQuestion?.textContent).toContain('Team 1 ist am Zug');
+    expect(mirroredQuestion?.textContent).not.toContain('Runde 1 von 6');
+    expect(mirroredQuestion?.textContent).not.toContain('Team 1 ist am Zug');
     expect(mainQuestion?.textContent).toContain('Wie viele Testantworten kann dein Buddy nennen?');
     expect(mainQuestion?.textContent).toContain('Aktuelles Ziel: 1');
+    expect(mainQuestion?.textContent).not.toContain('Runde 1 von 6');
+    expect(mainQuestion?.textContent).not.toContain('Team 1 ist am Zug');
+
+    clickButton('Ziel +1');
+
+    expect(container.querySelector('.table-side-controls[data-team-id="t1"]')?.getAttribute('data-active')).toBe(
+      'true',
+    );
+    expectText('Aktuelles Ziel: 2');
+    clickButton('Ziel +1');
+    expect(container.querySelector('.table-side-controls[data-team-id="t1"]')?.getAttribute('data-active')).toBe(
+      'true',
+    );
+    expectText('Aktuelles Ziel: 3');
+    clickButton('Weitergeben');
+
+    expect(container.querySelector('.table-side-controls[data-team-id="t1"]')?.getAttribute('data-active')).toBe(
+      'false',
+    );
+    expect(container.querySelector('.table-side-controls[data-team-id="t2"]')?.getAttribute('data-active')).toBe(
+      'true',
+    );
+    expect(container.querySelectorAll('button.table-side-action-button[data-action="raise"]')).toHaveLength(1);
+    expect(container.querySelectorAll('button.table-side-action-button[data-action="handoff"]')).toHaveLength(1);
+    expect(container.querySelectorAll('button.table-side-action-button[data-action="pass"]')).toHaveLength(1);
   });
 
   it('creates editable manual teams for a 4-player game', () => {
@@ -376,23 +418,27 @@ describe('App', () => {
     startFourPlayerGame();
 
     expectText('Bietrunde');
-    expectText('Team 1 ist am Zug');
-    expectButtonCount('Ziel +1', 2);
+    expectActiveTableTeam('t1');
+    expectButtonCount('Ziel +1', 1);
+    clickButton('Ziel +1');
     clickButton('Ziel +1');
 
-    expectText('Aktuelles Ziel: 2');
-    expectText('Team 2 ist am Zug');
+    expectText('Aktuelles Ziel: 3');
+    expectActiveTableTeam('t1');
+    clickButton('Weitergeben');
+    expectActiveTableTeam('t2');
     clickButton('Passen');
 
-    expectText('Team 1 muss 2 schaffen');
+    expectText('Team 1 muss 3 schaffen');
     expectText('Challenge');
-    expectText('Tracker: 0 / Ziel 2');
+    expectText('Tracker: 0 / Ziel 3');
+    clickButton('+1');
     clickButton('+1');
     clickButton('+1');
     clickButton('Auswertung prüfen');
 
     expectText('Vorschlag: Geschafft');
-    expectText('Gezählt: 2 / Ziel 2');
+    expectText('Gezählt: 3 / Ziel 3');
     clickButton('Ergebnis bestätigen');
 
     expectText('Team 1');
@@ -404,6 +450,7 @@ describe('App', () => {
     vi.useFakeTimers();
     startFourPlayerGame();
     clickButton('Ziel +1');
+    clickButton('Weitergeben');
     clickButton('Passen');
 
     expectText('Timer: 30 Sekunden');
@@ -422,6 +469,7 @@ describe('App', () => {
   it('allows manual correction before confirming the challenge result', () => {
     startFourPlayerGame();
     clickButton('Ziel +1');
+    clickButton('Weitergeben');
     clickButton('Passen');
     clickButton('+1');
     clickButton('Auswertung prüfen');
@@ -438,6 +486,7 @@ describe('App', () => {
   it('explains the point result when the challenge fails', () => {
     startFourPlayerGame();
     clickButton('Ziel +1');
+    clickButton('Weitergeben');
     clickButton('Passen');
     clickButton('Auswertung prüfen');
     clickButton('Ergebnis bestätigen');
@@ -461,7 +510,7 @@ describe('App', () => {
     expectNoText('1 Punkt');
 
     startFourPlayerGame();
-    expectText('Team 1 ist am Zug');
+    expectActiveTableTeam('t1');
     expectText('Aktuelles Ziel: 1');
   });
 
@@ -512,6 +561,7 @@ describe('App', () => {
     expectText('Wie viele Testbegriffe schafft Buddy A?');
     clickButton('Bietrunde starten');
     clickButton('Ziel +1');
+    clickButton('Weitergeben');
     clickButton('Passen');
     clickButton('+1');
     clickButton('+1');

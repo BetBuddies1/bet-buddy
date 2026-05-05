@@ -68,12 +68,26 @@ export function raiseBid(
 ): BiddingState {
   assertBidding(state);
   assertActiveTeam(state, teamId);
+  assertKnownTeam(teams, teamId);
+
+  return {
+    ...state,
+    currentBid: state.currentBid + 1,
+    highestBidTeamId: teamId,
+  };
+}
+
+export function endBidTurn(
+  state: BiddingState,
+  teams: Team[],
+  teamId: string,
+): BiddingState {
+  assertBidding(state);
+  assertActiveTeam(state, teamId);
 
   return {
     ...state,
     activeTeamId: getNextActiveTeamId(teams, state.passedTeamIds, teamId),
-    currentBid: state.currentBid + 1,
-    highestBidTeamId: teamId,
   };
 }
 
