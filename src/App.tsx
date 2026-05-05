@@ -11,7 +11,7 @@ import type { BiddingState, Player, Question, Team } from './game/types';
 import { createQuestionDeck } from './game/questionDeck';
 import { validatePlayerName } from './security/validatePlayerName';
 
-type Phase = 'setup' | 'teams' | 'result';
+type Phase = 'setup' | 'teams' | 'result' | 'finished';
 type AppProps = {
   createDeck?: () => Question[];
 };
@@ -27,10 +27,12 @@ const soundPlaceholders = {
   challengeSuccess: 'sounds/challenge-success-placeholder.mp3',
   challengeFail: 'sounds/challenge-fail-placeholder.mp3',
 };
+const roundCountOptions = [6, 8, 10] as const;
 
 export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [playerCount, setPlayerCount] = useState<number | null>(null);
+  const [roundCount, setRoundCount] = useState<number>(6);
   const [playerNames, setPlayerNames] = useState<string[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [teamDrafts, setTeamDrafts] = useState<TeamDraft[]>([]);
@@ -41,6 +43,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const [message, setMessage] = useState<string | null>(null);
 
   const activeQuestion = questionDeck[questionIndex % questionDeck.length];
+  const currentRound = questionIndex + 1;
   const teamById = useMemo(
     () => new Map(teams.map((team) => [team.id, team])),
     [teams],
@@ -49,6 +52,11 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   function choosePlayerCount(count: number) {
     setPlayerCount(count);
     setPlayerNames(Array.from({ length: count }, (_, index) => playerNames[index] ?? ''));
+    setMessage(null);
+  }
+
+  function chooseRoundCount(count: number) {
+    setRoundCount(count);
     setMessage(null);
   }
 
@@ -169,33 +177,45 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       ? soundPlaceholders.challengeSuccess
       : soundPlaceholders.challengeFail;
 
-    setTeams((currentTeams) =>
-      currentTeams.map((team) =>
+    const nextTeams = teams.map((team) =>
         winnerIds.includes(team.id) ? { ...team, score: team.score + 1 } : team,
-      ),
     );
+
+    setTeams(nextTeams);
     setBiddingState(null);
+
+    if (currentRound >= roundCount) {
+      setPhase('finished');
+    }
+
     setMessage(
       `${formatPointResult(teams, winnerIds, challengeTeamName, wasSuccessful)} Sound-Platzhalter: ${sound}`,
     );
   }
 
-  function startNextQuestion() {
+  function startNextRound() {
     if (teams.length === 0) {
       return;
     }
 
-    const nextQuestionIndex = (questionIndex + 1) % questionDeck.length;
+    const nextQuestionIndex = questionIndex + 1;
     const firstTeam = teams[nextQuestionIndex % teams.length];
 
     setQuestionIndex(nextQuestionIndex);
-    setBiddingState(createBiddingState(teams, questionDeck[nextQuestionIndex], firstTeam.id));
+    setBiddingState(
+      createBiddingState(
+        teams,
+        questionDeck[nextQuestionIndex % questionDeck.length],
+        firstTeam.id,
+      ),
+    );
     setMessage(null);
   }
 
   function resetGame() {
     setPhase('setup');
     setPlayerCount(null);
+    setRoundCount(6);
     setPlayerNames([]);
     setPlayers([]);
     setTeamDrafts([]);
@@ -228,17 +248,37 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       {phase === 'setup' ? (
         <section className="workspace" aria-labelledby="setup-title">
           <h2 id="setup-title">Spiel vorbereiten</h2>
-          <div className="segmented-control" aria-label="Spieleranzahl wählen">
-            {getEligiblePlayerCounts().map((count) => (
-              <button
-                className={playerCount === count ? 'is-selected' : ''}
-                key={count}
-                onClick={() => choosePlayerCount(count)}
-                type="button"
-              >
-                {count} Spieler
-              </button>
-            ))}
+          <div className="setup-grid">
+            <section aria-labelledby="player-count-title">
+              <h3 id="player-count-title">Spieleranzahl</h3>
+              <div className="segmented-control" aria-label="Spieleranzahl wählen">
+                {getEligiblePlayerCounts().map((count) => (
+                  <button
+                    className={playerCount === count ? 'is-selected' : ''}
+                    key={count}
+                    onClick={() => choosePlayerCount(count)}
+                    type="button"
+                  >
+                    {count} Spieler
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section aria-labelledby="round-count-title">
+              <h3 id="round-count-title">Spielumfang</h3>
+              <div className="segmented-control" aria-label="Spielumfang wählen">
+                {roundCountOptions.map((count) => (
+                  <button
+                    className={roundCount === count ? 'is-selected' : ''}
+                    key={count}
+                    onClick={() => chooseRoundCount(count)}
+                    type="button"
+                  >
+                    {count} Runden
+                  </button>
+                ))}
+              </div>
+            </section>
           </div>
 
           {playerCount !== null ? (
@@ -313,7 +353,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       {phase === 'result' ? (
         <section className="workspace play-space" aria-labelledby="round-title">
           <div className="round-panel">
-            <p className="eyebrow">Frage {questionIndex + 1}</p>
+            <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
             <h2 id="round-title">{activeQuestion.text}</h2>
             <p className="round-meta">
               Kategorie: {getCategoryLabel(activeQuestion.category)} · Zeitlimit:{' '}
@@ -323,13 +363,14 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
           {biddingState?.status === 'bidding' ? (
             <div className="round-controls">
+              <p className="eyebrow">Bietrunde</p>
               <p className="turn-label">
                 {teamById.get(biddingState.activeTeamId)?.name} ist am Zug
               </p>
-              <p className="bid-value">Aktuelles Gebot: {biddingState.currentBid}</p>
+              <p className="bid-value">Aktuelles Ziel: {biddingState.currentBid}</p>
               <div className="action-row">
                 <button className="primary-action" onClick={handleRaiseBid} type="button">
-                  Gebot +1
+                  Ziel +1
                 </button>
                 <button className="secondary-action" onClick={handlePassBid} type="button">
                   Passen
@@ -341,8 +382,8 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           {biddingState?.status === 'challenge' ? (
             <div className="round-controls">
               <p className="turn-label">
-                {teamById.get(biddingState.challengeTeamId)?.name} spielt für{' '}
-                {biddingState.currentBid}
+                {teamById.get(biddingState.challengeTeamId)?.name} muss{' '}
+                {biddingState.currentBid} schaffen
               </p>
               <div className="action-row">
                 <button
@@ -366,12 +407,23 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           {biddingState === null ? (
             <div className="round-controls">
               <p className="turn-label">Runde ausgewertet</p>
-              <button className="primary-action" onClick={startNextQuestion} type="button">
-                Nächste Frage
+              <button className="primary-action" onClick={startNextRound} type="button">
+                Nächste Runde
               </button>
             </div>
           ) : null}
 
+          <Scoreboard teams={teams} players={players} />
+        </section>
+      ) : null}
+
+      {phase === 'finished' ? (
+        <section className="workspace play-space" aria-labelledby="finished-title">
+          <div className="round-panel">
+            <p className="eyebrow">Nach {roundCount} Runden</p>
+            <h2 id="finished-title">Spiel beendet</h2>
+            <p className="round-meta">{formatGameResult(teams)}</p>
+          </div>
           <Scoreboard teams={teams} players={players} />
         </section>
       ) : null}
@@ -425,6 +477,21 @@ function formatPointResult(
   }
 
   return `${winnerNames.join(' und ')} bekommen je 1 Punkt.`;
+}
+
+function formatGameResult(teams: Team[]) {
+  const highestScore = Math.max(...teams.map((team) => team.score));
+  const winningTeams = teams.filter((team) => team.score === highestScore);
+
+  if (winningTeams.length === 1) {
+    return `${winningTeams[0].name} gewinnt mit ${highestScore} ${
+      highestScore === 1 ? 'Punkt' : 'Punkten'
+    }.`;
+  }
+
+  return `Unentschieden zwischen ${winningTeams
+    .map((team) => team.name)
+    .join(' und ')} mit ${highestScore} ${highestScore === 1 ? 'Punkt' : 'Punkten'}.`;
 }
 
 function Scoreboard({ teams, players }: { teams: Team[]; players: Player[] }) {

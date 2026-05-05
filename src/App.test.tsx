@@ -115,6 +115,12 @@ function startFourPlayerGame() {
   clickButton('Spiel starten');
 }
 
+function finishSuccessfulRound() {
+  clickButton('Ziel +1');
+  clickButton('Passen');
+  clickButton('Geschafft');
+}
+
 function setNativeValue(input: HTMLInputElement, value: string) {
   const valueSetter = Object.getOwnPropertyDescriptor(input, 'value')?.set;
   const prototype = Object.getPrototypeOf(input) as HTMLInputElement;
@@ -150,6 +156,13 @@ describe('App', () => {
     expectText('Anna');
     expectText('David');
     expectText('Spiel starten');
+  });
+
+  it('lets players choose the game scope in rounds', () => {
+    clickButton('8 Runden');
+    startFourPlayerGame();
+
+    expectText('Runde 1 von 8');
   });
 
   it('creates manual teams for a 6-player game', () => {
@@ -195,15 +208,16 @@ describe('App', () => {
   it('plays a 4-player bidding round through challenge resolution', () => {
     startFourPlayerGame();
 
+    expectText('Bietrunde');
     expectText('Team 1 ist am Zug');
-    expectButtonCount('Gebot +1', 1);
-    clickButton('Gebot +1');
+    expectButtonCount('Ziel +1', 1);
+    clickButton('Ziel +1');
 
-    expectText('Aktuelles Gebot: 2');
+    expectText('Aktuelles Ziel: 2');
     expectText('Team 2 ist am Zug');
     clickButton('Passen');
 
-    expectText('Team 1 spielt für 2');
+    expectText('Team 1 muss 2 schaffen');
     clickButton('Geschafft');
 
     expectText('Team 1');
@@ -213,7 +227,7 @@ describe('App', () => {
 
   it('explains the point result when the challenge fails', () => {
     startFourPlayerGame();
-    clickButton('Gebot +1');
+    clickButton('Ziel +1');
     clickButton('Passen');
     clickButton('Nicht geschafft');
 
@@ -222,9 +236,7 @@ describe('App', () => {
 
   it('starts a new game without reloading the app', () => {
     startFourPlayerGame();
-    clickButton('Gebot +1');
-    clickButton('Passen');
-    clickButton('Geschafft');
+    finishSuccessfulRound();
     expectText('Team 1 bekommt 1 Punkt.');
 
     clickButton('Neues Spiel');
@@ -237,6 +249,22 @@ describe('App', () => {
     startFourPlayerGame();
     expectText('Team 1 ist am Zug');
     expectText('0 Punkte');
+  });
+
+  it('ends the game after the selected number of rounds', () => {
+    startFourPlayerGame();
+
+    for (let round = 1; round <= 6; round += 1) {
+      finishSuccessfulRound();
+
+      if (round < 6) {
+        clickButton('Nächste Runde');
+      }
+    }
+
+    expectText('Spiel beendet');
+    expectText('Unentschieden zwischen Team 1 und Team 2 mit 3 Punkten.');
+    expectNoText('Nächste Runde');
   });
 
   it('uses the local question deck across rounds', () => {
@@ -267,12 +295,12 @@ describe('App', () => {
 
     startFourPlayerGame();
     expectText('Wie viele Testbegriffe schafft Buddy A?');
-    clickButton('Gebot +1');
+    clickButton('Ziel +1');
     clickButton('Passen');
     clickButton('Geschafft');
-    clickButton('Nächste Frage');
+    clickButton('Nächste Runde');
 
     expectText('Wie viele Testbegriffe schafft Buddy B?');
-    expectText('Aktuelles Gebot: 2');
+    expectText('Aktuelles Ziel: 2');
   });
 });
