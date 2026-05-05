@@ -398,7 +398,10 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           {isGamePhase && teams.length > 0 ? (
             <div className="game-hud" aria-label="Spielstatus">
               <span>Runde {Math.min(currentRound, roundCount)} von {roundCount}</span>
-              <span>{formatScoreSummary(teams)}</span>
+              <span className="score-chip">
+                <span className="score-label">Score</span>
+                <span className="score-value">{formatScoreSummary(teams)}</span>
+              </span>
             </div>
           ) : (
             <p className="intro">
@@ -897,6 +900,10 @@ function formatGameResult(teams: Team[]) {
 }
 
 function formatScoreSummary(teams: Team[]) {
+  if (teams.length === 2) {
+    return `${teams[0].name} ${teams[0].score}:${teams[1].score} ${teams[1].name}`;
+  }
+
   return teams.map((team) => `${team.name} ${team.score}`).join(' · ');
 }
 

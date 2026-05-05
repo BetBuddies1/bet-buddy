@@ -230,11 +230,12 @@ describe('App', () => {
 
     const header = container.querySelector('.app-header');
     const hud = container.querySelector('.game-hud');
+    const score = container.querySelector('.score-chip');
 
     expect(header?.classList.contains('game-header')).toBe(true);
     expect(hud?.textContent).toContain('Runde 1 von 6');
-    expect(hud?.textContent).toContain('Team 1 0');
-    expect(hud?.textContent).toContain('Team 2 0');
+    expect(score?.textContent).toContain('Score');
+    expect(score?.textContent).toContain('Team 1 0:0 Team 2');
   });
 
   it('shows table mode controls at both table ends and the question in the center', () => {
