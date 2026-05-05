@@ -6,8 +6,45 @@ describe('questionDeck', () => {
     const questions = getQuestionBank();
     const categories = new Set(questions.map((question) => question.category));
 
-    expect(questions.length).toBeGreaterThanOrEqual(8);
-    expect(categories.size).toBeGreaterThanOrEqual(4);
+    expect(questions.length).toBeGreaterThanOrEqual(150);
+    expect(categories).toEqual(
+      new Set([
+        'allgemeinwissen',
+        'geographie',
+        'kreativ',
+        'koerperlich',
+        'essen-trinken',
+        'geschichte',
+      ]),
+    );
+  });
+
+  it('keeps the curated catalogue balanced across all agreed categories', () => {
+    const questions = getQuestionBank();
+    const counts = questions.reduce<Record<string, number>>((categoryCounts, question) => {
+      categoryCounts[question.category] = (categoryCounts[question.category] ?? 0) + 1;
+      return categoryCounts;
+    }, {});
+
+    expect(counts).toMatchObject({
+      allgemeinwissen: 47,
+      geographie: 31,
+      kreativ: 18,
+      koerperlich: 13,
+      'essen-trinken': 23,
+      geschichte: 25,
+    });
+  });
+
+  it('uses unique ids and question texts without explicitly rejected prompts', () => {
+    const questions = getQuestionBank();
+    const ids = questions.map((question) => question.id);
+    const texts = questions.map((question) => question.text);
+
+    expect(new Set(ids)).toHaveLength(ids.length);
+    expect(new Set(texts)).toHaveLength(texts.length);
+    expect(texts.every((text) => /^Wie (viele|oft) /.test(text))).toBe(true);
+    expect(texts.some((text) => text.includes('Magnificent Seven'))).toBe(false);
   });
 
   it('creates a shuffled copy without dropping or duplicating questions', () => {
