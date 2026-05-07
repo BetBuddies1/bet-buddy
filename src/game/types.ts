@@ -23,7 +23,7 @@ export type Question = {
   text: string;
   category: CategoryId;
   timeLimit: number;
-  type: 'count';
+  type: 'count' | 'duration' | 'drawing' | 'streak';
   minBid: number;
 };
 

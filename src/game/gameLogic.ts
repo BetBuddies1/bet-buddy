@@ -85,10 +85,22 @@ export function endBidTurn(
   assertBidding(state);
   assertActiveTeam(state, teamId);
 
+  if (!canEndBidTurn(state, teamId)) {
+    throw new Error('Erst erhöhen, dann weitergeben.');
+  }
+
   return {
     ...state,
     activeTeamId: getNextActiveTeamId(teams, state.passedTeamIds, teamId),
   };
+}
+
+export function canEndBidTurn(state: BiddingState, teamId: string) {
+  return state.status === 'bidding' && state.activeTeamId === teamId && state.highestBidTeamId === teamId;
+}
+
+export function canPassBid(state: BiddingState, teamId: string) {
+  return state.status === 'bidding' && state.activeTeamId === teamId && state.highestBidTeamId !== teamId;
 }
 
 export function passBid(
@@ -98,6 +110,10 @@ export function passBid(
 ): BiddingState {
   assertBidding(state);
   assertActiveTeam(state, teamId);
+
+  if (!canPassBid(state, teamId)) {
+    throw new Error('Das Team mit dem höchsten Einsatz kann nicht passen.');
+  }
 
   const passedTeamIds = [...state.passedTeamIds, teamId];
   const remainingTeamIds = teams

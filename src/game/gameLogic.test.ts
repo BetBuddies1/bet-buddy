@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canPassBid,
   createBiddingState,
   endBidTurn,
   getEligiblePlayerCounts,
@@ -129,6 +130,30 @@ describe('gameLogic', () => {
       passedTeamIds: [],
       status: 'bidding',
     });
+  });
+
+  it('requires the active team to raise before handing over the turn', () => {
+    const bidding = createBiddingState(teams, question, 't1');
+    const raised = raiseBid(bidding, teams, 't1');
+    const handedOver = endBidTurn(raised, teams, 't1');
+
+    expect(() => endBidTurn(bidding, teams, 't1')).toThrow(
+      'Erst erhöhen, dann weitergeben.',
+    );
+    expect(() => endBidTurn(handedOver, teams, 't2')).toThrow(
+      'Erst erhöhen, dann weitergeben.',
+    );
+  });
+
+  it('prevents the current highest bidder from passing', () => {
+    const bidding = createBiddingState(teams, question, 't1');
+    const raised = raiseBid(bidding, teams, 't1');
+
+    expect(canPassBid(bidding, 't1')).toBe(true);
+    expect(canPassBid(raised, 't1')).toBe(false);
+    expect(() => passBid(raised, teams, 't1')).toThrow(
+      'Das Team mit dem höchsten Einsatz kann nicht passen.',
+    );
   });
 
   it('supports a 4-player bidding round with two teams', () => {

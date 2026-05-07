@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 const forbiddenPatterns = [
   { label: 'dangerouslySetInnerHTML', pattern: /dangerouslySetInnerHTML/ },
@@ -15,8 +15,28 @@ const forbiddenPatterns = [
   { label: 'window.open', pattern: /window\.open/ },
 ];
 
-const sourceExtensions = new Set(['.ts', '.tsx']);
+const sourceExtensions = new Set(['.ts', '.tsx', '.mjs', '.html']);
+const scanTargets = ['src', 'scripts', 'index.html', 'vite.config.ts'];
 const findings = [];
+
+function shouldScanFile(path) {
+  if (basename(path) === 'security-check.mjs') {
+    return false;
+  }
+
+  return [...sourceExtensions].some((extension) => path.endsWith(extension));
+}
+
+function scanPath(path) {
+  const stats = statSync(path);
+
+  if (stats.isDirectory()) {
+    scanDirectory(path);
+    return;
+  }
+
+  scanFile(path);
+}
 
 function scanDirectory(directory) {
   for (const entry of readdirSync(directory)) {
@@ -28,22 +48,27 @@ function scanDirectory(directory) {
       continue;
     }
 
-    if (![...sourceExtensions].some((extension) => fullPath.endsWith(extension))) {
-      continue;
-    }
-
-    const lines = readFileSync(fullPath, 'utf8').split(/\r?\n/);
-    lines.forEach((line, index) => {
-      forbiddenPatterns.forEach(({ label, pattern }) => {
-        if (pattern.test(line)) {
-          findings.push(`${fullPath}:${index + 1}: forbidden pattern found: ${label}`);
-        }
-      });
-    });
+    scanFile(fullPath);
   }
 }
 
-scanDirectory('src');
+function scanFile(path) {
+  if (!shouldScanFile(path)) {
+    return;
+  }
+
+  const lines = readFileSync(path, 'utf8').split(/\r?\n/);
+
+  lines.forEach((line, index) => {
+    forbiddenPatterns.forEach(({ label, pattern }) => {
+      if (pattern.test(line)) {
+        findings.push(`${path}:${index + 1}: forbidden pattern found: ${label}`);
+      }
+    });
+  });
+}
+
+scanTargets.forEach(scanPath);
 
 if (findings.length > 0) {
   findings.forEach((finding) => console.error(finding));

@@ -14,7 +14,7 @@ Diese App ist als statische GitHub-Pages-PWA konzipiert:
 - keine externen Skripte oder Fonts
 - keine externen Netzwerkrequests zur Laufzeit
 
-Die verbindliche Sicherheitsreferenz ist `docs/SECURITY-SSOT.md`.
+Die internen Sicherheitsleitplanken bleiben lokal; im öffentlichen Repository werden sie durch CSP, CI-Skripte und Build-Gates umgesetzt.
 
 ## Entwicklung
 
@@ -28,7 +28,7 @@ npm run dev
 ```bash
 npm run typecheck
 npm test
-npm audit --audit-level=high
+npm audit --audit-level=moderate
 npm run security:check
 npm run build
 ```

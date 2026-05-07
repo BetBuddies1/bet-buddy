@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 76" role="img" aria-label="Bet Buddy">
+  <defs>
+    <linearGradient id="mark-panel" x1="11" x2="65" y1="5" y2="71" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16476f"/>
+      <stop offset="1" stop-color="#051b31"/>
+    </linearGradient>
+    <linearGradient id="mark-cyan" x1="0" x2="0" y1="24" y2="66" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#53d7ff"/>
+      <stop offset="1" stop-color="#128cff"/>
+    </linearGradient>
+    <linearGradient id="mark-lime" x1="0" x2="0" y1="15" y2="57" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b7ff2d"/>
+      <stop offset="1" stop-color="#70e000"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="75" height="75" rx="12" fill="url(#mark-panel)" stroke="#53d7ff"/>
+  <rect x="13" y="27" width="30" height="42" rx="15" fill="url(#mark-cyan)"/>
+  <rect x="13" y="48" width="30" height="21" fill="#128cff"/>
+  <rect x="34" y="17" width="30" height="42" rx="15" fill="url(#mark-lime)"/>
+  <rect x="34" y="38" width="30" height="21" fill="#70e000"/>
+</svg>

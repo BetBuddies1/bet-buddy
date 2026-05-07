@@ -6,13 +6,14 @@ function q(
   text: string,
   minBid = 1,
   timeLimit = 30,
+  type: Question['type'] = 'count',
 ): Question {
   return {
     id: `q-${category}-${id}`,
     text,
     category,
     timeLimit,
-    type: 'count',
+    type,
     minBid,
   };
 }
@@ -99,7 +100,7 @@ const questionBank: Question[] = [
   q('allgemeinwissen', 'sprachen', 'Wie viele Sprachen kann dein Buddy nennen?', 4),
   q('allgemeinwissen', 'haustierarten', 'Wie viele Haustierarten kann dein Buddy nennen?', 2),
   q('allgemeinwissen', 'hunderassen', 'Wie viele Hunderassen kann dein Buddy nennen?', 3),
-  q('allgemeinwissen', 'dinosaurierarten', 'Wie viele Dinosaurierarten kann dein Buddy nennen?', 2),
+  q('allgemeinwissen', 'dinosaurier', 'Wie viele Dinosaurier kann dein Buddy nennen?', 3),
   q(
     'allgemeinwissen',
     'planeten-zwergplaneten',
@@ -144,6 +145,7 @@ const questionBank: Question[] = [
     'Wie viele bekannte Milliardärinnen oder Milliardäre kann dein Buddy nennen?',
     2,
   ),
+  q('allgemeinwissen', 'fernsehserien', 'Wie viele Fernsehserien kann dein Buddy nennen?', 4),
   q('allgemeinwissen', 'taenze', 'Wie viele Tänze kann dein Buddy nennen?', 3),
 
   q('geographie', 'laender', 'Wie viele Länder kann dein Buddy nennen?', 5),
@@ -173,7 +175,12 @@ const questionBank: Question[] = [
   q('geographie', 'laender-afrika', 'Wie viele Länder in Afrika kann dein Buddy nennen?', 4),
   q('geographie', 'laender-asien', 'Wie viele Länder in Asien kann dein Buddy nennen?', 4),
   q('geographie', 'laender-suedamerika', 'Wie viele Länder in Südamerika kann dein Buddy nennen?', 3),
-  q('geographie', 'flagge-rot', 'Wie viele Länder mit einer Flagge mit Rot kann dein Buddy nennen?', 4),
+  q(
+    'geographie',
+    'flagge-rot',
+    'Wie viele Länder kann dein Buddy nennen, deren Nationalflagge sichtbar Rot enthält?',
+    4,
+  ),
   q(
     'geographie',
     'bauwerke-wahrzeichen',
@@ -183,8 +190,8 @@ const questionBank: Question[] = [
   q(
     'geographie',
     'autokennzeichen-orte',
-    'Wie viele deutsche Autokennzeichen-Kürzel mit zugehörigem Ort kann dein Buddy nennen?',
-    2,
+    'Wie viele deutsche Autokennzeichen-Kürzel kann dein Buddy nennen?',
+    1,
   ),
   q('geographie', 'flughaefen', 'Wie viele Flughäfen kann dein Buddy nennen?', 3),
   q(
@@ -194,7 +201,7 @@ const questionBank: Question[] = [
     2,
   ),
   q('geographie', 'vulkane', 'Wie viele Vulkane kann dein Buddy nennen?', 2),
-  q('geographie', 'stadtstaaten', 'Wie viele Stadtstaaten kann dein Buddy nennen?', 2),
+  q('geographie', 'stadtstaaten', 'Wie viele deutsche Stadtstaaten kann dein Buddy nennen?', 1),
   q('geographie', 'euro-laender', 'Wie viele Länder mit dem Euro als Währung kann dein Buddy nennen?', 3),
   q(
     'geographie',
@@ -218,8 +225,16 @@ const questionBank: Question[] = [
     'Wie viele Begriffe aus einer gezogenen Kategorie kann dein Buddy in 1 Minute so zeichnen, dass sein Team sie errät?',
     2,
     60,
+    'drawing',
   ),
-  q('kreativ', 'logos-zeichnen', 'Wie viele bekannte Logos kann dein Buddy zeichnen?', 2),
+  q(
+    'kreativ',
+    'logos-zeichnen',
+    'Wie viele Markenlogos kann dein Buddy so zeichnen, dass sein Team sie errät?',
+    2,
+    60,
+    'drawing',
+  ),
   q(
     'kreativ',
     'alphabet-rueckwaerts',
@@ -241,13 +256,14 @@ const questionBank: Question[] = [
   q('koerperlich', 'kniebeugen', 'Wie viele Kniebeugen schafft dein Buddy in 30 Sekunden?', 5),
   q('koerperlich', 'hampelmaenner', 'Wie viele Hampelmänner schafft dein Buddy in 30 Sekunden?', 5),
   q('koerperlich', 'liegestuetze', 'Wie viele Liegestütze schafft dein Buddy in 30 Sekunden?', 2),
-  q('koerperlich', 'wand-sitzposition', 'Wie viele Sekunden kann dein Buddy die Wand-Sitzposition halten?', 10, 60),
+  q('koerperlich', 'wand-sitzposition', 'Wie viele Sekunden kann dein Buddy die Wand-Sitzposition halten?', 10, 60, 'duration'),
   q(
     'koerperlich',
     'buch-balancieren',
     'Wie viele Sekunden kann dein Buddy ein Buch auf dem Kopf balancieren und dabei langsam im Kreis gehen?',
     5,
     60,
+    'duration',
   ),
   q(
     'koerperlich',
@@ -255,20 +271,23 @@ const questionBank: Question[] = [
     'Wie viele Sekunden kann dein Buddy einen Löffel auf der Nase balancieren?',
     5,
     60,
+    'duration',
   ),
   q(
     'koerperlich',
     'wurfgegenstand-korb',
-    'Wie oft trifft dein Buddy nacheinander mit einem weichen Wurfgegenstand in einen improvisierten Korb?',
+    'Wie oft trifft dein Buddy nacheinander aus etwa zwei Metern mit einem weichen Wurfgegenstand in einen improvisierten Korb?',
     1,
     60,
+    'streak',
   ),
   q(
     'koerperlich',
     'wasserflasche-arm',
-    'Wie viele Sekunden kann dein Buddy eine volle Wasserflasche mit ausgestrecktem Arm halten?',
+    'Wie viele Sekunden kann dein Buddy eine gefüllte 1-Liter-Wasserflasche mit ausgestrecktem Arm halten?',
     5,
     60,
+    'duration',
   ),
   q(
     'koerperlich',
@@ -276,14 +295,16 @@ const questionBank: Question[] = [
     'Wie viele Sekunden kann dein Buddy auf einem Bein stehen und dabei die Augen schließen?',
     5,
     60,
+    'duration',
   ),
-  q('koerperlich', 'unterarmstuetz', 'Wie viele Sekunden kann dein Buddy einen Unterarmstütz halten?', 10, 60),
+  q('koerperlich', 'unterarmstuetz', 'Wie viele Sekunden kann dein Buddy einen Unterarmstütz halten?', 10, 60, 'duration'),
   q(
     'koerperlich',
     'superman-hold',
     'Wie viele Sekunden kann dein Buddy einen Superman-Hold auf dem Bauch halten?',
     5,
     60,
+    'duration',
   ),
   q(
     'koerperlich',
@@ -297,6 +318,7 @@ const questionBank: Question[] = [
     'Wie viele Sekunden kann dein Buddy einen Luftballon nur mit dem Atem in der Luft halten?',
     5,
     60,
+    'duration',
   ),
 
   q('essen-trinken', 'gewuerze', 'Wie viele Gewürze kann dein Buddy nennen?', 4),
@@ -393,6 +415,29 @@ export function filterQuestionsByCategories(
   return questions
     .filter((question) => selectedCategorySet.has(question.category))
     .map((question) => ({ ...question }));
+}
+
+export function findNextPlayableQuestionIndex(
+  questions: Question[],
+  startIndex: number,
+  skippedCategories: CategoryId[] = [],
+): number | null {
+  if (questions.length === 0) {
+    return null;
+  }
+
+  const skippedCategorySet = new Set(skippedCategories);
+
+  for (let offset = 0; offset < questions.length; offset += 1) {
+    const candidateIndex = startIndex + offset;
+    const question = questions[candidateIndex % questions.length];
+
+    if (!skippedCategorySet.has(question.category)) {
+      return candidateIndex;
+    }
+  }
+
+  return null;
 }
 
 export function createQuestionDeck(random = Math.random): Question[] {
