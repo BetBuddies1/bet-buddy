@@ -55,9 +55,21 @@ export default defineConfig(({ mode }) => ({
   ],
   build: {
     sourcemap: false,
-  },
-  esbuild: {
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    rolldownOptions: {
+      output: {
+        minify:
+          mode === 'production'
+            ? {
+                compress: {
+                  dropConsole: true,
+                  dropDebugger: true,
+                },
+                mangle: true,
+                codegen: true,
+              }
+            : undefined,
+      },
+    },
   },
   test: {
     environment: 'jsdom',
