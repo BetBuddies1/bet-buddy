@@ -232,6 +232,15 @@ function startEightPlayerGame() {
   clickButton('Einsatzrunde starten');
 }
 
+function prepareFivePlayerRound() {
+  openSetup();
+  clickButton('5 Spieler');
+  fillPlayerNames(['Anna', 'Ben', 'Clara', 'David', 'Elif']);
+  clickButton('Weiter zu Einstellungen');
+  clickButton('Teams erstellen');
+  clickButton('Spiel starten');
+}
+
 function finishSuccessfulRound() {
   clickButton('Einsatz +1');
   clickButton('Weitergeben');
@@ -374,6 +383,68 @@ describe('App', () => {
     expectNoText('Höchster Einsatz');
   });
 
+  it('keeps odd player counts available as a secondary setup option', () => {
+    openSetup();
+
+    const standardCounts = [...container.querySelectorAll('.segmented-control button')].map(
+      (button) => button.textContent,
+    );
+    const exceptionCounts = [...container.querySelectorAll('.exception-count-grid button')].map(
+      (button) => button.textContent,
+    );
+
+    expect(standardCounts).toEqual(['4 Spieler', '6 Spieler', '8 Spieler']);
+    expectText('Ausnahme: ungerade Spielerzahl');
+    expect(exceptionCounts).toEqual(['5 Spieler', '7 Spieler']);
+  });
+
+  it('creates a two-player and a three-player team for five players', () => {
+    openSetup();
+    clickButton('5 Spieler');
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David', 'Elif']);
+    clickButton('Weiter zu Einstellungen');
+    clickButton('Teams erstellen');
+
+    expect(container.querySelectorAll('.team-editor')).toHaveLength(2);
+    expect(container.querySelectorAll('.team-editor')[0]?.textContent).toContain('Buddy 2');
+    expect(container.querySelectorAll('.team-editor')[0]?.textContent).not.toContain('Buddy 3');
+    expect(container.querySelectorAll('.team-editor')[1]?.textContent).toContain('Buddy 3');
+    expectText('Elif');
+
+    clickButton('Spiel starten');
+    clickButton('Einsatzrunde starten');
+
+    expectText('Anna bietet für Ben');
+  });
+
+  it('rotates bidder and challenge buddy through a three-player team', () => {
+    prepareFivePlayerRound();
+
+    clickButton('Einsatzrunde starten');
+    expectText('Anna bietet für Ben');
+    clickButton('Passen');
+    expectText('David muss 1 schaffen');
+    expectText('Clara hat für Team 2 geboten');
+    clickButton('Challenge starten');
+    clickButton('+1');
+    clickButton('Auswertung prüfen');
+    clickButton('Ergebnis bestätigen');
+    clickButton('Nächste Runde');
+
+    clickButton('Einsatzrunde starten');
+    expectText('David bietet für Elif');
+    clickButton('Passen');
+    clickButton('Challenge starten');
+    clickButton('+1');
+    clickButton('Auswertung prüfen');
+    clickButton('Ergebnis bestätigen');
+    clickButton('Nächste Runde');
+
+    clickButton('Einsatzrunde starten');
+    expectText('Elif bietet');
+    expectText('Clara liefert');
+  });
+
   it('skips a question without advancing the round or rotating the starting team', () => {
     const controlledDeck: Question[] = [
       {
@@ -410,6 +481,66 @@ describe('App', () => {
     clickButton('Einsatzrunde starten');
 
     expectActiveTableTeam('t1');
+  });
+
+  it('limits question skips to two per game for each team', () => {
+    const controlledDeck: Question[] = [
+      {
+        id: 'test-limited-skip-q1',
+        text: 'Wie viele erste Skip-Testantworten kann dein Buddy nennen?',
+        category: 'allgemeinwissen',
+        timeLimit: 30,
+        type: 'count',
+        minBid: 1,
+      },
+      {
+        id: 'test-limited-skip-q2',
+        text: 'Wie viele zweite Skip-Testantworten kann dein Buddy nennen?',
+        category: 'kreativ',
+        timeLimit: 30,
+        type: 'count',
+        minBid: 1,
+      },
+      {
+        id: 'test-limited-skip-q3',
+        text: 'Wie viele dritte Skip-Testantworten kann dein Buddy nennen?',
+        category: 'geographie',
+        timeLimit: 30,
+        type: 'count',
+        minBid: 1,
+      },
+      {
+        id: 'test-limited-skip-q4',
+        text: 'Wie viele vierte Skip-Testantworten kann dein Buddy nennen?',
+        category: 'geschichte',
+        timeLimit: 30,
+        type: 'count',
+        minBid: 1,
+      },
+    ];
+
+    renderAppWithDeck(controlledDeck);
+    prepareFourPlayerRound();
+
+    expect(findButton('Frage überspringen').textContent).toContain('Team 1: 2 übrig');
+
+    clickButton('Frage überspringen');
+
+    expect(findButton('Frage überspringen').textContent).toContain('Team 1: 1 übrig');
+
+    clickButton('Frage überspringen');
+
+    const exhaustedTeamOneSkip = findButton('Frage überspringen');
+
+    expect(exhaustedTeamOneSkip.textContent).toContain('Team 1: 0 übrig');
+    expect(exhaustedTeamOneSkip.disabled).toBe(true);
+
+    clickButton('Einsatzrunde starten');
+    finishSuccessfulRound();
+    clickButton('Nächste Runde');
+
+    expect(findButton('Frage überspringen').textContent).toContain('Team 2: 2 übrig');
+    expect(findButton('Frage überspringen').disabled).toBe(false);
   });
 
   it('skips the current physical question without showing a second skip action', () => {
@@ -492,6 +623,27 @@ describe('App', () => {
 
     expect(container.querySelector('[aria-label="Luftballon mit Atem Illustration"]')).not.toBeNull();
     expectText('Einsatzrunde starten');
+  });
+
+  it('marks bitmap physical illustrations for smooth UI treatment', () => {
+    const physicalDeck: Question[] = [
+      {
+        id: 'q-koerperlich-kniebeugen',
+        text: 'Wie viele Kniebeugen schafft dein Buddy in 30 Sekunden?',
+        category: 'koerperlich',
+        timeLimit: 30,
+        type: 'count',
+        minBid: 1,
+      },
+    ];
+
+    renderAppWithDeck(physicalDeck);
+    prepareFourPlayerRound();
+
+    const illustration = container.querySelector('[aria-label="Kniebeugen Illustration"]');
+
+    expect(illustration?.classList.contains('challenge-illustration--bitmap')).toBe(true);
+    expect(illustration?.querySelector('img')).not.toBeNull();
   });
 
   it('keeps physical round intros compact in two-team table games', () => {
@@ -803,7 +955,7 @@ describe('App', () => {
 
     clickButton('Weitergeben');
 
-    expectText('Team 2 ist am Zug');
+    expectText('Clara bietet für David (Team 2)');
     expect(bidDisplay?.querySelector('strong')?.textContent).toBe('2');
     expect(bidDisplay?.textContent).toContain('Team 1 hält den Einsatz');
   });
@@ -964,7 +1116,7 @@ describe('App', () => {
     expectActiveTableTeam('t2');
     clickButton('Passen');
 
-    expectText('Team 1 muss 3 schaffen');
+    expectText('Ben muss 3 schaffen');
     expectText('Challenge');
     expectText('Tracker: 0 / Einsatz 3');
     clickButton('Challenge starten');
@@ -984,6 +1136,54 @@ describe('App', () => {
     expectText('Team 1 bekommt 1 Punkt.');
     expect(playedSoundSources.at(-1)).toContain('sounds/challenge-success.wav');
     expectNoText('Sound-Platzhalter');
+  });
+
+  it('shows the rotating bidder and challenge buddy for each two-player team', () => {
+    startFourPlayerGame();
+
+    const teamOneSide = container.querySelector('.table-side-controls[data-team-id="t1"]');
+
+    expect(teamOneSide?.textContent).toContain('Anna bietet');
+    expect(teamOneSide?.textContent).toContain('Ben liefert');
+
+    clickButton('Einsatz +1');
+    clickButton('Weitergeben');
+    clickButton('Passen');
+
+    expectText('Ben muss 2 schaffen');
+    expectText('Anna hat für Team 1 geboten');
+
+    clickButton('Challenge starten');
+    clickButton('+1');
+    clickButton('+1');
+    clickButton('Auswertung prüfen');
+    clickButton('Ergebnis bestätigen');
+    clickButton('Nächste Runde');
+    clickButton('Einsatzrunde starten');
+
+    const nextTeamOneSide = container.querySelector('.table-side-controls[data-team-id="t1"]');
+
+    expect(nextTeamOneSide?.textContent).toContain('Ben bietet');
+    expect(nextTeamOneSide?.textContent).toContain('Anna liefert');
+  });
+
+  it('orients two-team challenge controls toward the tracking team', () => {
+    startFourPlayerGame();
+    clickButton('Einsatz +1');
+    clickButton('Weitergeben');
+    clickButton('Passen');
+
+    expect(container.querySelector('.challenge-panel')?.getAttribute('data-facing-team-id')).toBe(
+      't2',
+    );
+
+    clickButton('Startseite');
+    startFourPlayerGame();
+    clickButton('Passen');
+
+    expect(container.querySelector('.challenge-panel')?.getAttribute('data-facing-team-id')).toBe(
+      't1',
+    );
   });
 
   it('does not create one-shot sounds while sounds are switched off', () => {
@@ -1342,7 +1542,7 @@ describe('App', () => {
     clickButton('Weitergeben');
     clickButton('Passen');
 
-    expectText('Team 1 muss 2 Sekunden schaffen');
+    expectText('Ben muss 2 Sekunden schaffen');
     expectText('Noch: 2 Sekunden');
     expectText('Gemessen: 0 Sekunden / Einsatz 2 Sekunden');
     expectNoText('Zeitlimit: 60 Sekunden');
@@ -1450,7 +1650,7 @@ describe('App', () => {
     clickButton('Weitergeben');
     clickButton('Passen');
 
-    expectText('Team 1 muss 2 Begriffe schaffen');
+    expectText('Ben muss 2 Begriffe schaffen');
     expectText('Zeichenzeit: 60 Sekunden');
     expectText('Erraten: 0 / Einsatz 2');
     expectButtonCount('Erraten +1', 1);
@@ -1476,7 +1676,7 @@ describe('App', () => {
     clickButton('Weitergeben');
     clickButton('Passen');
 
-    expectText('Team 1 muss 2 Treffer in Folge schaffen');
+    expectText('Ben muss 2 Treffer in Folge schaffen');
     expectText('Treffer in Folge: 0 / Einsatz 2');
     expectNoText('Timer:');
     expectNoText('Zeitlimit:');
@@ -1546,9 +1746,105 @@ describe('App', () => {
       }
     }
 
-    expectText('Spiel beendet');
-    expectText('Unentschieden zwischen Team 1 und Team 2 mit 3 Punkten.');
+    expectText('Finale');
+    expectText('Unentschieden');
+    expectText('3 : 3');
+    expect(container.querySelector('.finale-confetti')).toBeNull();
     expectNoText('Nächste Runde');
+  });
+
+  it('starts another game from the finale with the same players and teams', () => {
+    startFourPlayerGame();
+
+    for (let round = 1; round <= 6; round += 1) {
+      finishSuccessfulRound();
+
+      if (round < 6) {
+        clickButton('Nächste Runde');
+        clickButton('Einsatzrunde starten');
+      }
+    }
+
+    expectText('Finale');
+    expectButtonCount('Nochmal spielen', 1);
+
+    clickButton('Nochmal spielen');
+
+    expectText('Runde 1 von 6');
+    expectText('Wie viele Testantworten kann dein Buddy nennen?');
+    expectText('0:0');
+    expectNoText('Spieleranzahl');
+
+    clickButton('Einsatzrunde starten');
+
+    const teamOneSide = container.querySelector('.table-side-controls[data-team-id="t1"]');
+
+    expect(teamOneSide?.textContent).toContain('Anna bietet');
+    expect(teamOneSide?.textContent).toContain('Ben liefert');
+  });
+
+  it('makes the finale visually distinct and lets players adjust settings before replaying', () => {
+    startFourPlayerGame();
+
+    for (let round = 1; round <= 6; round += 1) {
+      if (round % 2 === 1) {
+        finishSuccessfulRound();
+      } else {
+        clickButton('Passen');
+        clickButton('Challenge starten');
+        clickButton('+1');
+        clickButton('Auswertung prüfen');
+        clickButton('Ergebnis bestätigen');
+      }
+
+      if (round < 6) {
+        clickButton('Nächste Runde');
+        clickButton('Einsatzrunde starten');
+      }
+    }
+
+    const finaleScreen = container.querySelector('.finished-screen');
+    const rankingRows = container.querySelectorAll('.finale-ranking-row');
+
+    expect(finaleScreen).not.toBeNull();
+    expect(finaleScreen?.querySelector('.finale-panel')).not.toBeNull();
+    expect(finaleScreen?.querySelector('.finale-panel .finale-confetti')).not.toBeNull();
+    expectText('Finale');
+    expectText('Team 1 gewinnt');
+    expectText('6 : 0');
+    expectNoText('Runde 6 von 6');
+    expectNoText('Score');
+    expectNoText('Das lokale Partyspiel für mutige Einsätze und gute Buddy-Instinkte.');
+    expectNoText('Team 1 bekommt 1 Punkt.');
+    expect(rankingRows).toHaveLength(2);
+    expect(rankingRows[0]?.textContent).toContain('1.');
+    expect(rankingRows[0]?.textContent).toContain('Team 1');
+    expect(rankingRows[0]?.textContent).toContain('6 Punkte');
+    expect(rankingRows[1]?.textContent).toContain('2.');
+    expect(rankingRows[1]?.textContent).toContain('Team 2');
+    expect(rankingRows[1]?.textContent).toContain('0 Punkte');
+    expectButtonCount('Nochmal spielen', 1);
+    expectButtonCount('Einstellungen ändern', 1);
+    expectButtonCount('Startseite', 1);
+    expectNoText('Nächste Runde');
+
+    clickButton('Einstellungen ändern');
+
+    expectText('Spieldauer');
+    expectText('Kategorien');
+    expectNoText('Spieleranzahl');
+
+    clickButton('8 Runden');
+    clickButton('Teams erstellen');
+
+    expectText('Teams erstellen');
+    expectText('Anna');
+    expectText('Ben');
+
+    clickButton('Spiel starten');
+
+    expectText('Runde 1 von 8');
+    expectText('0:0');
   });
 
   it('uses the local question deck across rounds', () => {

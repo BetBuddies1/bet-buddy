@@ -1,6 +1,6 @@
 import type { BiddingState, Player, Question, Team, ValidationResult } from './types';
 
-const ELIGIBLE_PLAYER_COUNTS = [4, 6, 8] as const;
+const ELIGIBLE_PLAYER_COUNTS = [4, 5, 6, 7, 8] as const;
 
 export function getEligiblePlayerCounts(): number[] {
   return [...ELIGIBLE_PLAYER_COUNTS];
@@ -8,15 +8,17 @@ export function getEligiblePlayerCounts(): number[] {
 
 export function validateManualTeams(players: Player[], teams: Team[]): ValidationResult {
   if (!ELIGIBLE_PLAYER_COUNTS.includes(players.length as (typeof ELIGIBLE_PLAYER_COUNTS)[number])) {
-    return { ok: false, error: 'Es sind genau 4, 6 oder 8 Spieler erlaubt.' };
+    return { ok: false, error: 'Es sind 4 bis 8 Spieler erlaubt.' };
   }
 
-  if (teams.length !== players.length / 2) {
-    return { ok: false, error: 'Jedes Team muss aus genau zwei Spielern bestehen.' };
+  const expectedTeamCount = Math.floor(players.length / 2);
+
+  if (teams.length !== expectedTeamCount) {
+    return { ok: false, error: `Für ${players.length} Spieler braucht ihr ${expectedTeamCount} Teams.` };
   }
 
-  if (teams.some((team) => team.playerIds.length !== 2)) {
-    return { ok: false, error: 'Jedes Team muss aus genau zwei Spielern bestehen.' };
+  if (teams.some((team) => team.playerIds.length < 2 || team.playerIds.length > 3)) {
+    return { ok: false, error: 'Teams müssen aus zwei oder drei Spielern bestehen.' };
   }
 
   const teamIds = teams.map((team) => team.id);

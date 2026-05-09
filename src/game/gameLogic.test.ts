@@ -36,8 +36,8 @@ const question: Question = {
 };
 
 describe('gameLogic', () => {
-  it('allows exactly 4, 6, or 8 players for the MVP', () => {
-    expect(getEligiblePlayerCounts()).toEqual([4, 6, 8]);
+  it('allows the standard player counts plus odd-player exception counts', () => {
+    expect(getEligiblePlayerCounts()).toEqual([4, 5, 6, 7, 8]);
   });
 
   it('accepts manual teams when every player is assigned exactly once in pairs', () => {
@@ -49,6 +49,15 @@ describe('gameLogic', () => {
       validateManualTeams(players.slice(0, 4), [
         { id: 't1', name: 'Team A', playerIds: ['p1', 'p2'], score: 0 },
         { id: 't2', name: 'Team B', playerIds: ['p3', 'p4'], score: 0 },
+      ]),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts manual teams with one three-player team for odd player counts', () => {
+    expect(
+      validateManualTeams(players.slice(0, 5), [
+        { id: 't1', name: 'Team A', playerIds: ['p1', 'p2'], score: 0 },
+        { id: 't2', name: 'Team B', playerIds: ['p3', 'p4', 'p5'], score: 0 },
       ]),
     ).toEqual({ ok: true });
   });
