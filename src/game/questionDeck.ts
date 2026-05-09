@@ -4,7 +4,7 @@ function q(
   category: CategoryId,
   id: string,
   text: string,
-  minBid = 1,
+  _minBid = 1,
   timeLimit = 30,
   type: Question['type'] = 'count',
 ): Question {
@@ -14,7 +14,7 @@ function q(
     category,
     timeLimit,
     type,
-    minBid,
+    minBid: 1,
   };
 }
 

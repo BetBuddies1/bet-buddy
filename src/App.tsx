@@ -4,7 +4,6 @@ import {
   canPassBid,
   createBiddingState,
   endBidTurn,
-  getEligiblePlayerCounts,
   passBid,
   raiseBid,
   resolveChallenge,
@@ -45,6 +44,10 @@ type ChallengeState = {
   count: number;
   secondsLeft: number;
 };
+type TeamRoundRole = {
+  bidder: Player;
+  challengePlayer: Player;
+};
 
 type ChallengeLoopAudioState = {
   audio: HTMLAudioElement;
@@ -79,6 +82,7 @@ const manualChallengeLoopFadeOutMs = 650;
 const challengeSuccessFadeInMs = 120;
 const challengeSuccessFadeOutDelayMs = 560;
 const challengeSuccessFadeOutMs = 520;
+const maxQuestionSkipsPerTeam = 2;
 const oneShotSoundCleanupMs: Record<Exclude<GameSound, 'challengeRunningLoop'>, number> = {
   bid: 1_500,
   challengeSuccess: challengeSuccessFadeOutDelayMs + challengeSuccessFadeOutMs + 250,
@@ -86,6 +90,8 @@ const oneShotSoundCleanupMs: Record<Exclude<GameSound, 'challengeRunningLoop'>, 
 };
 
 const roundCountOptions = [6, 8, 10] as const;
+const standardPlayerCountOptions = [4, 6, 8] as const;
+const exceptionPlayerCountOptions = [5, 7] as const;
 const categoryOptions: Array<{ id: CategoryId; label: string }> = [
   { id: 'allgemeinwissen', label: 'Allgemeinwissen' },
   { id: 'essen-trinken', label: 'Essen & Trinken' },
@@ -124,6 +130,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [recentPointTeamIds, setRecentPointTeamIds] = useState<string[]>([]);
+  const [teamQuestionSkipCounts, setTeamQuestionSkipCounts] = useState<Record<string, number>>({});
   const challengeLoopAudioRef = useRef<ChallengeLoopAudioState | null>(null);
   const oneShotAudioRefs = useRef<OneShotAudioState[]>([]);
 
@@ -135,6 +142,19 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const teamById = useMemo(
     () => new Map(teams.map((team) => [team.id, team])),
     [teams],
+  );
+  const playerById = useMemo(
+    () => new Map(players.map((player) => [player.id, player])),
+    [players],
+  );
+  const teamRoundRoles = useMemo(
+    () =>
+      new Map(
+        teams
+          .map((team) => [team.id, getTeamRoundRole(team, playerById, roundIndex)] as const)
+          .filter((entry): entry is readonly [string, TeamRoundRole] => entry[1] !== undefined),
+      ),
+    [playerById, roundIndex, teams],
   );
   const usesTableMode = teams.length === 2;
   const usesMirroredRoundIntro = usesTableMode && activeQuestion.category !== 'koerperlich';
@@ -154,12 +174,42 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       : false;
   const activeTeamCanPassBid =
     biddingState?.status === 'bidding' ? canPassBid(biddingState, biddingState.activeTeamId) : false;
+  const activeTeamRole =
+    biddingState?.status === 'bidding'
+      ? teamRoundRoles.get(biddingState.activeTeamId)
+      : undefined;
+  const challengeTeam =
+    biddingState?.status === 'challenge'
+      ? teamById.get(biddingState.challengeTeamId)
+      : undefined;
+  const challengeTeamRole =
+    biddingState?.status === 'challenge'
+      ? teamRoundRoles.get(biddingState.challengeTeamId)
+      : undefined;
   const nextQuestionIndex = findNextPlayableQuestionIndex(questionDeck, questionIndex + 1);
+  const roundStartingTeam = teams.length > 0 ? teams[roundIndex % teams.length] : undefined;
+  const roundStartingTeamSkipCount =
+    roundStartingTeam === undefined ? 0 : (teamQuestionSkipCounts[roundStartingTeam.id] ?? 0);
+  const roundStartingTeamSkipsLeft = Math.max(
+    0,
+    maxQuestionSkipsPerTeam - roundStartingTeamSkipCount,
+  );
   const canSkipCurrentQuestion =
     phase === 'roundIntro' &&
+    roundStartingTeamSkipsLeft > 0 &&
     nextQuestionIndex !== null &&
     questionDeck.length > 0 &&
     nextQuestionIndex % questionDeck.length !== questionIndex % questionDeck.length;
+  const challengeFacingTeam =
+    biddingState?.status === 'challenge' && usesTableMode
+      ? teams.find((team) => team.id !== biddingState.challengeTeamId)
+      : undefined;
+  const challengeFacingClass =
+    challengeFacingTeam?.id === teams[1]?.id
+      ? 'faces-opponent'
+      : challengeFacingTeam?.id === teams[0]?.id
+        ? 'faces-home'
+        : '';
 
   useEffect(() => {
     if (challengeState?.status !== 'running') {
@@ -317,7 +367,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     }
 
     setPlayers(validatedPlayers);
-    setTeamDrafts(createInitialTeamDrafts(validatedPlayers));
+    setTeamDrafts(getReusableTeamDrafts(validatedPlayers, teamDrafts));
     setPhase('teams');
     setMessage(null);
   }
@@ -384,6 +434,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setBiddingState(createBiddingState(nextTeams, nextQuestionDeck[0], nextTeams[0].id));
     setChallengeState(null);
     setRecentPointTeamIds([]);
+    setTeamQuestionSkipCounts({});
     setPhase('roundIntro');
     setMessage(null);
   }
@@ -557,8 +608,57 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setMessage(null);
   }
 
+  function replayGame() {
+    if (teams.length === 0) {
+      return;
+    }
+
+    const nextQuestionDeck = filterQuestionsByCategories(createDeck(), selectedCategories);
+
+    if (nextQuestionDeck.length === 0) {
+      setMessage('Für die aktive Kategorieauswahl sind keine Fragen verfügbar.');
+      return;
+    }
+
+    const resetTeams = teams.map((team) => ({ ...team, score: 0 }));
+
+    setTeams(resetTeams);
+    setQuestionDeck(nextQuestionDeck);
+    setRoundIndex(0);
+    setQuestionIndex(0);
+    setChallengeState(null);
+    setRecentPointTeamIds([]);
+    setTeamQuestionSkipCounts({});
+    setBiddingState(createBiddingState(resetTeams, nextQuestionDeck[0], resetTeams[0].id));
+    setPhase('roundIntro');
+    setMessage(null);
+  }
+
+  function editReplaySettings() {
+    if (players.length === 0) {
+      return;
+    }
+
+    setTeamDrafts(createTeamDraftsFromTeams(teams));
+    setSetupStep('rules');
+    setPhase('setup');
+    setBiddingState(null);
+    setChallengeState(null);
+    setRecentPointTeamIds([]);
+    setMessage(null);
+  }
+
   function skipCurrentQuestion() {
     if (phase !== 'roundIntro') {
+      return;
+    }
+
+    if (roundStartingTeam === undefined) {
+      return;
+    }
+
+    if (roundStartingTeamSkipsLeft <= 0) {
+      setMessage(`${roundStartingTeam.name} hat keine Skips mehr.`);
       return;
     }
 
@@ -572,6 +672,10 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       return;
     }
 
+    setTeamQuestionSkipCounts((currentCounts) => ({
+      ...currentCounts,
+      [roundStartingTeam.id]: (currentCounts[roundStartingTeam.id] ?? 0) + 1,
+    }));
     moveToQuestionInCurrentRound(nextPlayableQuestionIndex, 'Frage übersprungen.');
   }
 
@@ -623,6 +727,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setQuestionIndex(0);
     setQuestionDeck(createDeck());
     setRecentPointTeamIds([]);
+    setTeamQuestionSkipCounts({});
     setMessage(null);
   }
 
@@ -644,7 +749,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
           <h1>Bet Buddy</h1>
         </div>
         <div className="header-copy">
-          {isGamePhase && teams.length > 0 ? (
+          {isGamePhase && phase !== 'finished' && teams.length > 0 ? (
             <div className="game-hud" aria-label="Spielstatus">
               <span>Runde {Math.min(currentRound, roundCount)} von {roundCount}</span>
               <span className="score-chip">
@@ -655,7 +760,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
                 </span>
               </span>
             </div>
-          ) : phase !== 'welcome' ? (
+          ) : phase !== 'welcome' && phase !== 'finished' ? (
             <p className="intro">
               Das lokale Partyspiel für mutige Einsätze und gute Buddy-Instinkte.
             </p>
@@ -671,9 +776,11 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               >
                 {soundsEnabled ? 'Sounds aus' : 'Sounds an'}
               </button>
-              <button className="secondary-action header-home-action" onClick={resetGame} type="button">
-                Startseite
-              </button>
+              {phase !== 'finished' ? (
+                <button className="secondary-action header-home-action" onClick={resetGame} type="button">
+                  Startseite
+                </button>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -753,7 +860,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               <section aria-labelledby="player-count-title">
                 <h3 id="player-count-title">Spieleranzahl</h3>
                 <div className="segmented-control" aria-label="Spieleranzahl wählen">
-                  {getEligiblePlayerCounts().map((count) => (
+                  {standardPlayerCountOptions.map((count) => (
                     <button
                       className={playerCount === count ? 'is-selected' : ''}
                       key={count}
@@ -763,6 +870,21 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
                       {count} Spieler
                     </button>
                   ))}
+                </div>
+                <div className="exception-counts" aria-label="Ungerade Spieleranzahl">
+                  <p>Ausnahme: ungerade Spielerzahl</p>
+                  <div className="exception-count-grid">
+                    {exceptionPlayerCountOptions.map((count) => (
+                      <button
+                        className={playerCount === count ? 'is-selected' : ''}
+                        key={count}
+                        onClick={() => choosePlayerCount(count)}
+                        type="button"
+                      >
+                        {count} Spieler
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </section>
 
@@ -854,7 +976,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
                     value={teamDraft.name}
                   />
                 </label>
-                {[0, 1].map((playerSlot) => (
+                {teamDraft.playerIds.map((playerId, playerSlot) => (
                   <label className="field" key={`${teamDraft.id}-${playerSlot}`}>
                     <span>Buddy {playerSlot + 1}</span>
                     <select
@@ -862,7 +984,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
                       onChange={(event) =>
                         updateTeamPlayer(teamIndex, playerSlot, event.target.value)
                       }
-                      value={teamDraft.playerIds[playerSlot]}
+                      value={playerId}
                     >
                       {players.map((player) => (
                         <option key={player.id} value={player.id}>
@@ -917,12 +1039,13 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               Einsatzrunde starten
             </button>
             <button
+              aria-label="Frage überspringen"
               className="secondary-action"
               disabled={!canSkipCurrentQuestion}
               onClick={skipCurrentQuestion}
               type="button"
             >
-              Frage überspringen
+              {formatQuestionSkipAction(roundStartingTeam, roundStartingTeamSkipsLeft)}
             </button>
           </div>
         </section>
@@ -939,10 +1062,12 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               onEndTurn={handleEndBidTurn}
               onPass={handlePassBid}
               onRaise={handleRaiseBid}
+              role={teams[1] ? teamRoundRoles.get(teams[1].id) : undefined}
               team={teams[1]}
             />
             <BiddingCenterQuestion
               activeTeam={teamById.get(biddingState.activeTeamId)}
+              activeTeamRole={activeTeamRole}
               currentBid={biddingState.currentBid}
               facesOpponent={teams[1]?.id === biddingState.activeTeamId}
               holdingTeam={
@@ -960,6 +1085,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
               onEndTurn={handleEndBidTurn}
               onPass={handlePassBid}
               onRaise={handleRaiseBid}
+              role={teams[0] ? teamRoundRoles.get(teams[0].id) : undefined}
               team={teams[0]}
             />
           </section>
@@ -968,7 +1094,10 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
             <div className="round-controls phase-panel bidding-panel">
               <p className="eyebrow">Einsatzrunde</p>
               <h2 id="bidding-title" className="turn-label">
-                {teamById.get(biddingState.activeTeamId)?.name} ist am Zug
+                {formatBiddingTurnLabel(
+                  teamById.get(biddingState.activeTeamId),
+                  activeTeamRole,
+                )}
               </h2>
               <BidDisplay
                 currentBid={biddingState.currentBid}
@@ -1012,15 +1141,21 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       {phase === 'challenge' && biddingState?.status === 'challenge' ? (
         <section className="workspace round-screen" aria-labelledby="challenge-title">
             <div
-              className="round-controls phase-panel challenge-panel"
+              className={`round-controls phase-panel challenge-panel ${challengeFacingClass}`}
               data-challenge-status={challengeState?.status ?? 'ready'}
               data-challenge-type={activeQuestion.type}
+              data-facing-team-id={challengeFacingTeam?.id}
             >
               <p className="eyebrow">Challenge</p>
               <h2 id="challenge-title" className="turn-label">
-                {teamById.get(biddingState.challengeTeamId)?.name} muss{' '}
+                {formatChallengePerformer(challengeTeam, challengeTeamRole)} muss{' '}
                 {formatChallengeGoal(biddingState.currentBid, activeQuestion)} schaffen
               </h2>
+              {challengeTeamRole ? (
+                <p className="round-meta">
+                  {formatChallengeRoleContext(challengeTeam, challengeTeamRole)}
+                </p>
+              ) : null}
               <p className="round-meta">{activeQuestion.text}</p>
               <ChallengeIllustration question={activeQuestion} />
               {challengeState?.status === 'running' ? (
@@ -1173,14 +1308,25 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       ) : null}
 
       {phase === 'finished' ? (
-        <section className="workspace score-screen" aria-labelledby="finished-title">
-          <div className="round-panel hero-panel">
-            <p className="eyebrow">Nach {roundCount} Runden</p>
-            <h2 id="finished-title">Spiel beendet</h2>
-            {message !== null ? <p className="round-meta">{message}</p> : null}
-            <p className="round-meta">{formatGameResult(teams)}</p>
+        <section className="workspace score-screen finished-screen" aria-labelledby="finished-title">
+          <div className="round-panel hero-panel finale-panel">
+            <FinaleConfetti winner={getSoleWinningTeam(teams)} />
+            <p className="eyebrow">Finale</p>
+            <h2 id="finished-title">{formatFinaleHeading(teams)}</h2>
+            <p className="finale-score-line">{formatFinaleScore(teams)}</p>
+            <div className="finale-actions">
+              <button className="primary-action finale-replay-action" onClick={replayGame} type="button">
+                Nochmal spielen
+              </button>
+              <button className="secondary-action" onClick={editReplaySettings} type="button">
+                Einstellungen ändern
+              </button>
+              <button className="secondary-action" onClick={resetGame} type="button">
+                Startseite
+              </button>
+            </div>
           </div>
-          <Scoreboard players={players} recentPointTeamIds={recentPointTeamIds} teams={teams} />
+          <FinaleRanking players={players} teams={teams} />
         </section>
       ) : null}
 
@@ -1194,11 +1340,77 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 }
 
 function createInitialTeamDrafts(players: Player[]): TeamDraft[] {
-  return Array.from({ length: players.length / 2 }, (_, index) => ({
-    id: `t${index + 1}`,
-    name: `Team ${index + 1}`,
-    playerIds: [players[index * 2].id, players[index * 2 + 1].id],
+  const teamSizes = getInitialTeamSizes(players.length);
+  let playerIndex = 0;
+
+  return teamSizes.map((teamSize, index) => {
+    const teamPlayers = players.slice(playerIndex, playerIndex + teamSize);
+
+    playerIndex += teamSize;
+
+    return {
+      id: `t${index + 1}`,
+      name: `Team ${index + 1}`,
+      playerIds: teamPlayers.map((player) => player.id),
+    };
+  });
+}
+
+function createTeamDraftsFromTeams(teams: Team[]): TeamDraft[] {
+  return teams.map((team) => ({
+    id: team.id,
+    name: team.name,
+    playerIds: [...team.playerIds],
   }));
+}
+
+function getReusableTeamDrafts(players: Player[], currentDrafts: TeamDraft[]) {
+  const playerIds = new Set(players.map((player) => player.id));
+  const assignedPlayerIds = currentDrafts.flatMap((draft) => draft.playerIds);
+  const uniqueAssignedPlayerIds = new Set(assignedPlayerIds);
+  const hasReusableDrafts =
+    currentDrafts.length === getInitialTeamSizes(players.length).length &&
+    uniqueAssignedPlayerIds.size === players.length &&
+    currentDrafts.every(
+      (draft) =>
+        draft.playerIds.length >= 2 &&
+        draft.playerIds.length <= 3 &&
+        draft.playerIds.every((playerId) => playerIds.has(playerId)),
+    );
+
+  return hasReusableDrafts ? currentDrafts : createInitialTeamDrafts(players);
+}
+
+function getInitialTeamSizes(playerCount: number) {
+  const teamCount = Math.floor(playerCount / 2);
+  const teamSizes = Array.from({ length: teamCount }, () => 2);
+
+  if (playerCount % 2 === 1) {
+    teamSizes[teamSizes.length - 1] += 1;
+  }
+
+  return teamSizes;
+}
+
+function getTeamRoundRole(
+  team: Team,
+  playerById: Map<string, Player>,
+  roundIndex: number,
+): TeamRoundRole | undefined {
+  if (team.playerIds.length < 2) {
+    return undefined;
+  }
+
+  const bidderId = team.playerIds[roundIndex % team.playerIds.length];
+  const challengePlayerId = team.playerIds[(roundIndex + 1) % team.playerIds.length];
+  const bidder = playerById.get(bidderId);
+  const challengePlayer = playerById.get(challengePlayerId);
+
+  if (!bidder || !challengePlayer) {
+    return undefined;
+  }
+
+  return { bidder, challengePlayer };
 }
 
 function QuestionTablePanel({
@@ -1225,12 +1437,14 @@ function QuestionTablePanel({
 
 function BiddingCenterQuestion({
   activeTeam,
+  activeTeamRole,
   currentBid,
   facesOpponent,
   holdingTeam,
   question,
 }: {
   activeTeam: Team | undefined;
+  activeTeamRole: TeamRoundRole | undefined;
   currentBid: number;
   facesOpponent: boolean;
   holdingTeam: Team | undefined;
@@ -1243,11 +1457,18 @@ function BiddingCenterQuestion({
     >
       <div className="table-question-copy">
         <p className="eyebrow">Einsatzrunde</p>
+        {activeTeamRole ? (
+          <p className="table-role-line">{formatBiddingRole(activeTeamRole)}</p>
+        ) : null}
         <p className="table-question-text">{question.text}</p>
         <BidDisplay
           currentBid={currentBid}
           question={question}
-          statusText={holdingTeam ? formatBidStatus(activeTeam, holdingTeam) : undefined}
+          statusText={
+            holdingTeam
+              ? formatBidStatus(activeTeam, holdingTeam, activeTeamRole)
+              : undefined
+          }
         />
       </div>
     </div>
@@ -1299,6 +1520,7 @@ function TableSideControls({
   onEndTurn,
   onPass,
   onRaise,
+  role,
   team,
 }: {
   canEndTurn: boolean;
@@ -1308,6 +1530,7 @@ function TableSideControls({
   onEndTurn: () => void;
   onPass: () => void;
   onRaise: () => void;
+  role: TeamRoundRole | undefined;
   team: Team | undefined;
 }) {
   return (
@@ -1318,7 +1541,14 @@ function TableSideControls({
     >
       <div>
         <p className="eyebrow">{team?.name ?? 'Team'}</p>
-        <p className="table-side-status">{isActive ? 'Am Zug' : 'Wartet'}</p>
+        <p className="table-side-status">
+          {role ? `${role.bidder.name} bietet` : isActive ? 'Am Zug' : 'Wartet'}
+        </p>
+        {role ? (
+          <p className="table-side-role">
+            {role.challengePlayer.name} liefert{isActive ? '' : ' · Wartet'}
+          </p>
+        ) : null}
       </div>
       {isActive ? (
         <div className="table-side-actions">
@@ -1432,7 +1662,10 @@ function ChallengeIllustration({ question }: { question: Question }) {
 
   if (physicalIllustration) {
     return (
-      <figure className="challenge-illustration" aria-label={physicalIllustration.label}>
+      <figure
+        className="challenge-illustration challenge-illustration--bitmap"
+        aria-label={physicalIllustration.label}
+      >
         <img
           alt=""
           decoding="async"
@@ -1784,6 +2017,14 @@ function formatChallengeProgress(
 
 function formatSeconds(seconds: number) {
   return `${seconds} ${seconds === 1 ? 'Sekunde' : 'Sekunden'}`;
+}
+
+function formatQuestionSkipAction(team: Team | undefined, skipsLeft: number) {
+  if (team === undefined) {
+    return 'Frage überspringen';
+  }
+
+  return `Frage überspringen (${team.name}: ${skipsLeft} übrig)`;
 }
 
 function formatIncreaseTrackerLabel(question: Question) {
@@ -2141,6 +2382,25 @@ function formatGameResult(teams: Team[]) {
     .join(' und ')} mit ${highestScore} ${highestScore === 1 ? 'Punkt' : 'Punkten'}.`;
 }
 
+function formatFinaleHeading(teams: Team[]) {
+  const highestScore = Math.max(...teams.map((team) => team.score));
+  const winningTeams = teams.filter((team) => team.score === highestScore);
+
+  if (winningTeams.length === 1) {
+    return `${winningTeams[0].name} gewinnt`;
+  }
+
+  return 'Unentschieden';
+}
+
+function formatFinaleScore(teams: Team[]) {
+  return teams.map((team) => team.score).join(' : ');
+}
+
+function formatPoints(score: number) {
+  return `${score} ${score === 1 ? 'Punkt' : 'Punkte'}`;
+}
+
 function formatScoreSummary(teams: Team[]) {
   if (teams.length === 2) {
     return `${teams[0].name} ${teams[0].score}:${teams[1].score} ${teams[1].name}`;
@@ -2157,12 +2417,95 @@ function formatCompactScoreSummary(teams: Team[]) {
   return teams.map((team) => team.score).join(' · ');
 }
 
-function formatBidStatus(activeTeam: Team | undefined, holdingTeam: Team | undefined) {
+function formatBiddingRole(role: TeamRoundRole) {
+  return `${role.bidder.name} bietet für ${role.challengePlayer.name}`;
+}
+
+function formatBiddingTurnLabel(team: Team | undefined, role: TeamRoundRole | undefined) {
+  if (role) {
+    return `${formatBiddingRole(role)} (${team?.name ?? 'Team'})`;
+  }
+
+  return `${team?.name ?? 'Aktives Team'} ist am Zug`;
+}
+
+function formatChallengePerformer(team: Team | undefined, role: TeamRoundRole | undefined) {
+  return role?.challengePlayer.name ?? team?.name ?? 'Das aktive Team';
+}
+
+function formatChallengeRoleContext(team: Team | undefined, role: TeamRoundRole) {
+  return `${role.bidder.name} hat für ${team?.name ?? 'das Team'} geboten`;
+}
+
+function formatBidStatus(
+  activeTeam: Team | undefined,
+  holdingTeam: Team | undefined,
+  activeTeamRole?: TeamRoundRole,
+) {
   if (holdingTeam) {
     return `${holdingTeam.name} hält den Einsatz`;
   }
 
-  return `${activeTeam?.name ?? 'Aktives Team'} ist dran`;
+  return activeTeamRole
+    ? formatBiddingRole(activeTeamRole)
+    : `${activeTeam?.name ?? 'Aktives Team'} ist dran`;
+}
+
+function getSoleWinningTeam(teams: Team[]) {
+  if (teams.length === 0) {
+    return null;
+  }
+
+  const highestScore = Math.max(...teams.map((team) => team.score));
+  const winningTeams = teams.filter((team) => team.score === highestScore);
+
+  return winningTeams.length === 1 ? winningTeams[0] : null;
+}
+
+function FinaleConfetti({ winner }: { winner: Team | null }) {
+  if (winner === null) {
+    return null;
+  }
+
+  return (
+    <div className="finale-confetti" aria-hidden="true">
+      {Array.from({ length: 18 }, (_, index) => (
+        <span key={`${winner.id}-confetti-${index}`} />
+      ))}
+    </div>
+  );
+}
+
+function FinaleRanking({ teams, players }: { teams: Team[]; players: Player[] }) {
+  const playerById = new Map(players.map((player) => [player.id, player]));
+  const rankedTeams = [...teams].sort((firstTeam, secondTeam) => secondTeam.score - firstTeam.score);
+
+  return (
+    <section className="finale-ranking" aria-label="Endstand">
+      <p className="eyebrow">Endstand</p>
+      <div className="finale-ranking-list">
+        {rankedTeams.map((team, index) => (
+          <article
+            className={`finale-ranking-row ${index === 0 ? 'is-winner' : ''}`}
+            data-team-id={team.id}
+            key={team.id}
+          >
+            <div className="finale-rank-place">{index + 1}.</div>
+            <div>
+              <h3>{team.name}</h3>
+              <p>
+                {team.playerIds
+                  .map((playerId) => playerById.get(playerId)?.name)
+                  .filter(Boolean)
+                  .join(' & ')}
+              </p>
+            </div>
+            <strong>{formatPoints(team.score)}</strong>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function Scoreboard({
@@ -2211,7 +2554,7 @@ function Scoreboard({
                   +1
                 </span>
               ) : null}
-              {team.score} {team.score === 1 ? 'Punkt' : 'Punkte'}
+              {formatPoints(team.score)}
             </strong>
           </article>
         );

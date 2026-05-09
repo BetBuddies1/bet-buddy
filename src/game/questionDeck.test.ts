@@ -75,11 +75,11 @@ describe('questionDeck', () => {
         }),
         expect.objectContaining({
           text: 'Wie viele bekannte Milliardärinnen oder Milliardäre kann dein Buddy nennen?',
-          minBid: 2,
+          minBid: 1,
         }),
         expect.objectContaining({
           text: 'Wie viele Fernsehserien kann dein Buddy nennen?',
-          minBid: 4,
+          minBid: 1,
         }),
         expect.objectContaining({
           text: 'Wie viele deutsche Autokennzeichen-Kürzel kann dein Buddy nennen?',
@@ -87,21 +87,21 @@ describe('questionDeck', () => {
         }),
         expect.objectContaining({
           text: 'Wie viele Weltwunder der Antike oder der Neuzeit kann dein Buddy nennen?',
-          minBid: 2,
+          minBid: 1,
         }),
         expect.objectContaining({
           text: 'Wie viele Begriffe aus einer gezogenen Kategorie kann dein Buddy in 1 Minute so zeichnen, dass sein Team sie errät?',
-          minBid: 2,
+          minBid: 1,
           timeLimit: 60,
           type: 'drawing',
         }),
         expect.objectContaining({
           text: 'Wie viele Biersorten kann dein Buddy nennen?',
-          minBid: 2,
+          minBid: 1,
         }),
         expect.objectContaining({
           text: 'Wie viele Mineralwassermarken kann dein Buddy nennen?',
-          minBid: 2,
+          minBid: 1,
         }),
       ]),
     );
@@ -131,16 +131,16 @@ describe('questionDeck', () => {
       ),
     ).toBe(true);
     expect(questionsByType.count?.every((question) => question.minBid >= 1)).toBe(true);
-    expect(questions.find((question) => question.id === 'q-koerperlich-kniebeugen')?.minBid).toBe(
-      5,
-    );
-    expect(questions.find((question) => question.id === 'q-koerperlich-liegestuetze')?.minBid).toBe(
-      2,
-    );
-    expect(questions.find((question) => question.id === 'q-koerperlich-muenzturm')?.minBid).toBe(3);
+    expect(questions.every((question) => question.minBid === 1)).toBe(true);
     expect(
       questionsByType.streak?.every((question) => /Treffer|nacheinander/.test(question.text)),
     ).toBe(true);
+  });
+
+  it('sets every minimum bid to one', () => {
+    const questions = getQuestionBank();
+
+    expect(questions.every((question) => question.minBid === 1)).toBe(true);
   });
 
   it('creates a shuffled copy without dropping or duplicating questions', () => {
