@@ -11,12 +11,18 @@ export type Team = {
 };
 
 export type CategoryId =
-  | 'allgemeinwissen'
-  | 'geographie'
-  | 'kreativ'
-  | 'koerperlich'
+  | 'medien-popkultur'
+  | 'woerter-namen'
   | 'essen-trinken'
-  | 'geschichte';
+  | 'welt-orte'
+  | 'natur-wissen'
+  | 'sport-freizeit'
+  | 'beruf-gesellschaft'
+  | 'zuhause-alltag'
+  | 'marken-technik'
+  | 'geschichte-kultur'
+  | 'spiele-kreativitaet'
+  | 'koerperlich';
 
 export type Question = {
   id: string;
@@ -24,7 +30,8 @@ export type Question = {
   category: CategoryId;
   timeLimit: number;
   type: 'count' | 'duration' | 'drawing' | 'streak';
-  minBid: number;
+  isSpecial?: boolean;
+  drawingPrompt?: 'category';
 };
 
 export type BiddingState =

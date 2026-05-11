@@ -9,7 +9,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let container: HTMLDivElement;
 let root: Root;
 let originalAudio: typeof Audio;
+let originalConfirm: typeof window.confirm;
+let originalScrollTo: typeof window.scrollTo;
 let playedSoundSources: string[];
+let scrollToMock: ReturnType<typeof vi.fn>;
 type TestAudioElement = {
   currentTime: number;
   loop: boolean;
@@ -25,18 +28,16 @@ const defaultTestDeck: Question[] = [
   {
     id: 'default-test-q1',
     text: 'Wie viele Testantworten kann dein Buddy nennen?',
-    category: 'allgemeinwissen',
+    category: 'medien-popkultur',
     timeLimit: 30,
     type: 'count',
-    minBid: 1,
   },
   {
     id: 'default-test-q2',
     text: 'Wie viele weitere Testantworten kann dein Buddy nennen?',
-    category: 'kreativ',
+    category: 'spiele-kreativitaet',
     timeLimit: 30,
     type: 'count',
-    minBid: 1,
   },
 ];
 
@@ -116,6 +117,18 @@ function changeSelect(label: string, value: string) {
     select.value = value;
     select.dispatchEvent(new Event('change', { bubbles: true }));
   });
+}
+
+function findSelect(label: string) {
+  const select = [...container.querySelectorAll('select')].find(
+    (candidate) => candidate.getAttribute('aria-label') === label,
+  );
+
+  if (!select) {
+    throw new Error(`Auswahl nicht gefunden: ${label}`);
+  }
+
+  return select as HTMLSelectElement;
 }
 
 function expectButtonSelected(label: string, expectedSelected: boolean) {
@@ -270,6 +283,11 @@ describe('App', () => {
     playedSoundSources = [];
     createdAudioElements = [];
     originalAudio = window.Audio;
+    originalConfirm = window.confirm;
+    originalScrollTo = window.scrollTo;
+    scrollToMock = vi.fn();
+    window.confirm = vi.fn(() => true);
+    window.scrollTo = scrollToMock;
     window.Audio = class TestAudio {
       currentTime = 0;
       loop = false;
@@ -291,6 +309,8 @@ describe('App', () => {
 
   afterEach(() => {
     window.Audio = originalAudio;
+    window.confirm = originalConfirm;
+    window.scrollTo = originalScrollTo;
     vi.useRealTimers();
     act(() => {
       root.unmount();
@@ -324,6 +344,14 @@ describe('App', () => {
     expectNoText('Spieldauer');
   });
 
+  it('scrolls to the top when the visible phase changes', () => {
+    scrollToMock.mockClear();
+
+    openSetup();
+
+    expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+  });
+
   it('lets players switch sounds off for the current session', () => {
     expect(findButton('Sounds aus').getAttribute('aria-pressed')).toBe('true');
 
@@ -335,6 +363,36 @@ describe('App', () => {
     openSetup();
 
     expectButtonCount('Sounds an', 1);
+  });
+
+  it('asks for confirmation before leaving an active game from the start button', () => {
+    const confirmMock = vi.fn(() => false);
+    window.confirm = confirmMock;
+    startFourPlayerGame();
+
+    clickButton('Startseite');
+
+    expect(confirmMock).toHaveBeenCalledWith(
+      'Das laufende Spiel geht verloren. Wirklich zur Startseite zurückkehren?',
+    );
+    expectText('Runde 1 von 6');
+    expectNoText('Wer kennt seinen Buddy am besten?');
+
+    confirmMock.mockReturnValue(true);
+
+    clickButton('Startseite');
+
+    expectText('Wer kennt seinen Buddy am besten?');
+  });
+
+  it('warns before a browser refresh or tab close during an active game', () => {
+    startFourPlayerGame();
+
+    const unloadEvent = new Event('beforeunload', { cancelable: true });
+    const wasNotPrevented = window.dispatchEvent(unloadEvent);
+
+    expect(wasNotPrevented).toBe(false);
+    expect(unloadEvent.defaultPrevented).toBe(true);
   });
 
   it('keeps setup usable when a deck has no questions', () => {
@@ -379,7 +437,7 @@ describe('App', () => {
     clickButton('Einsatzrunde starten');
 
     expectText('Einsatzrunde');
-    expectText('Mindest-Einsatz');
+    expectText('Startwert');
     expectNoText('Höchster Einsatz');
   });
 
@@ -450,18 +508,16 @@ describe('App', () => {
       {
         id: 'test-skip-q1',
         text: 'Wie viele erste Testantworten kann dein Buddy nennen?',
-        category: 'allgemeinwissen',
+        category: 'medien-popkultur',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
       {
         id: 'test-skip-q2',
         text: 'Wie viele zweite Testantworten kann dein Buddy nennen?',
-        category: 'kreativ',
+        category: 'spiele-kreativitaet',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
     ];
 
@@ -488,34 +544,30 @@ describe('App', () => {
       {
         id: 'test-limited-skip-q1',
         text: 'Wie viele erste Skip-Testantworten kann dein Buddy nennen?',
-        category: 'allgemeinwissen',
+        category: 'medien-popkultur',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
       {
         id: 'test-limited-skip-q2',
         text: 'Wie viele zweite Skip-Testantworten kann dein Buddy nennen?',
-        category: 'kreativ',
+        category: 'spiele-kreativitaet',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
       {
         id: 'test-limited-skip-q3',
         text: 'Wie viele dritte Skip-Testantworten kann dein Buddy nennen?',
-        category: 'geographie',
+        category: 'welt-orte',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
       {
         id: 'test-limited-skip-q4',
         text: 'Wie viele vierte Skip-Testantworten kann dein Buddy nennen?',
-        category: 'geschichte',
+        category: 'geschichte-kultur',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
     ];
 
@@ -551,15 +603,13 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 30,
         type: 'count',
-        minBid: 3,
       },
       {
         id: 'test-non-physical-q1',
         text: 'Wie viele allgemeine Testantworten kann dein Buddy nennen?',
-        category: 'allgemeinwissen',
+        category: 'medien-popkultur',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
       {
         id: 'q-koerperlich-kniebeugen',
@@ -567,15 +617,13 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 30,
         type: 'count',
-        minBid: 5,
       },
       {
         id: 'test-non-physical-q2',
         text: 'Wie viele kreative Testantworten kann dein Buddy nennen?',
-        category: 'kreativ',
+        category: 'spiele-kreativitaet',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
     ];
 
@@ -614,7 +662,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 60,
         type: 'duration',
-        minBid: 5,
       },
     ];
 
@@ -633,7 +680,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
     ];
 
@@ -654,7 +700,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 30,
         type: 'count',
-        minBid: 3,
       },
     ];
 
@@ -677,7 +722,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 60,
         type: 'duration',
-        minBid: 5,
       },
     ];
     const squatDeck: Question[] = [
@@ -687,7 +731,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 30,
         type: 'count',
-        minBid: 5,
       },
     ];
 
@@ -793,7 +836,6 @@ describe('App', () => {
           category: 'koerperlich',
           timeLimit: 60,
           type: id.includes('wurfgegenstand') ? 'streak' : isCountQuestion ? 'count' : 'duration',
-          minBid: 1,
         },
       ]);
       prepareFourPlayerRound();
@@ -856,7 +898,7 @@ describe('App', () => {
     expect(centeredQuestion?.classList.contains('is-opponent')).toBe(false);
     expect(centeredQuestion?.classList.contains('is-active')).toBe(false);
     expect(centeredQuestion?.textContent).toContain('Wie viele Testantworten kann dein Buddy nennen?');
-    expect(bidDisplay?.textContent).toContain('Mindest-Einsatz');
+    expect(bidDisplay?.textContent).toContain('Startwert');
     expect(bidDisplay?.querySelector('strong')?.textContent).toBe('1');
     expect(centeredQuestion?.textContent).not.toContain('Team 1 ist dran');
     expect(centeredQuestion?.textContent).not.toContain('Aktueller Einsatz');
@@ -905,7 +947,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 60,
         type: 'duration',
-        minBid: 10,
       },
     ];
 
@@ -918,21 +959,21 @@ describe('App', () => {
     const teamOneSide = container.querySelector('.table-side-controls[data-team-id="t1"]');
     const teamTwoSide = container.querySelector('.table-side-controls[data-team-id="t2"]');
 
-    expect(bidDisplay?.textContent).toContain('Mindest-Einsatz');
-    expect(bidDisplay?.querySelector('strong')?.textContent).toBe('10');
-    expect(bidDisplay?.querySelector('.table-bid-unit')?.textContent).toBe('Sekunden');
-    expect(teamOneSide?.textContent).not.toContain('Einsatz 10 Sekunden');
-    expect(teamTwoSide?.textContent).not.toContain('Einsatz 10 Sekunden');
+    expect(bidDisplay?.textContent).toContain('Startwert');
+    expect(bidDisplay?.querySelector('strong')?.textContent).toBe('1');
+    expect(bidDisplay?.querySelector('.table-bid-unit')?.textContent).toBe('Sekunde');
+    expect(teamOneSide?.textContent).not.toContain('Einsatz 1 Sekunde');
+    expect(teamTwoSide?.textContent).not.toContain('Einsatz 1 Sekunde');
 
     clickButton('Einsatz +1');
 
     expect(bidDisplay?.textContent).toContain('Höchster Einsatz');
-    expect(bidDisplay?.querySelector('strong')?.textContent).toBe('11');
+    expect(bidDisplay?.querySelector('strong')?.textContent).toBe('2');
     expect(bidDisplay?.querySelector('.table-bid-unit')?.textContent).toBe('Sekunden');
-    expect(playedSoundSources.at(-1)).toContain('sounds/bid.wav');
+    expect(playedSoundSources.at(-1)).toContain('sounds/bid.mp3');
     expect(createdAudioElements.at(-1)?.volume).toBeLessThan(0.45);
-    expect(teamOneSide?.textContent).not.toContain('Einsatz 11 Sekunden');
-    expect(teamTwoSide?.textContent).not.toContain('Einsatz 11 Sekunden');
+    expect(teamOneSide?.textContent).not.toContain('Einsatz 2 Sekunden');
+    expect(teamTwoSide?.textContent).not.toContain('Einsatz 2 Sekunden');
   });
 
   it('uses the prominent bid display in regular bidding rounds', () => {
@@ -942,7 +983,7 @@ describe('App', () => {
     const bidDisplay = biddingPanel?.querySelector('.table-bid-display');
 
     expect(container.querySelector('.table-mode')).toBeNull();
-    expect(bidDisplay?.textContent).toContain('Mindest-Einsatz');
+    expect(bidDisplay?.textContent).toContain('Startwert');
     expect(bidDisplay?.querySelector('strong')?.textContent).toBe('1');
     expect(bidDisplay?.textContent).not.toContain('Team 1 ist dran');
     expect(biddingPanel?.textContent).not.toContain('Höchster Einsatz: 1');
@@ -968,7 +1009,7 @@ describe('App', () => {
     expect(metaLines).toHaveLength(2);
     expect(container.querySelectorAll('.round-meta-pill')).toHaveLength(0);
     expect(metaLines[0]?.textContent).toContain('Kategorie');
-    expect(metaLines[0]?.textContent).toContain('Allgemeinwissen');
+    expect(metaLines[0]?.textContent).toContain('Medien & Popkultur');
     expect(metaLines[1]?.textContent).toContain('Zeitlimit');
     expect(metaLines[1]?.textContent).toContain('30 Sekunden');
   });
@@ -1002,40 +1043,91 @@ describe('App', () => {
     expectText('Spieldauer');
     expectText('Kategorien');
     expectCategoryOrder([
-      'Allgemeinwissen',
+      'Medien & Popkultur',
+      'Wörter & Namen',
       'Essen & Trinken',
-      'Geographie',
-      'Geschichte',
-      'Körperlich',
-      'Kreativ',
+      'Welt & Orte',
+      'Natur & Wissen',
+      'Sport & Freizeit',
+      'Beruf & Gesellschaft',
+      'Zuhause & Alltag',
+      'Marken & Technik',
+      'Geschichte & Kultur',
+      'Spiele & Kreativität',
+      'Körperliche Challenges',
     ]);
-    expectButtonSelected('Allgemeinwissen', true);
-    expectButtonSelected('Kreativ', true);
+    expectButtonSelected('Medien & Popkultur', true);
+    expectButtonSelected('Spiele & Kreativität', true);
 
-    clickButton('Allgemeinwissen');
-    expectButtonSelected('Allgemeinwissen', false);
+    clickButton('Medien & Popkultur');
+    expectButtonSelected('Medien & Popkultur', false);
 
     clickButton('Teams erstellen');
     clickButton('Spiel starten');
 
     expectText('Wie viele weitere Testantworten kann dein Buddy nennen?');
     expectText('Kategorie');
-    expectText('Kreativ');
+    expectText('Spiele & Kreativität');
     expectText('Zeitlimit');
     expectText('30 Sekunden');
+  });
+
+  it('keeps special questions out by default and includes them when players opt in', () => {
+    const deckWithSpecialFirst: Question[] = [
+      {
+        id: 'special-test-question',
+        text: 'Wie viele spezielle Testantworten kann dein Buddy nennen?',
+        category: 'medien-popkultur',
+        timeLimit: 30,
+        type: 'count',
+        isSpecial: true,
+      },
+      {
+        id: 'normal-test-question',
+        text: 'Wie viele normale Testantworten kann dein Buddy nennen?',
+        category: 'medien-popkultur',
+        timeLimit: 30,
+        type: 'count',
+      },
+    ];
+
+    renderAppWithDeck(deckWithSpecialFirst);
+    openSetupRules();
+    expectText('Normale Fragen');
+    expectText('Auch Spezialfragen');
+    expectText('z.B. Harry-Potter-Zaubersprüche');
+    clickButton('Teams erstellen');
+    clickButton('Spiel starten');
+
+    expectText('Wie viele normale Testantworten kann dein Buddy nennen?');
+    expectNoText('Wie viele spezielle Testantworten kann dein Buddy nennen?');
+
+    renderAppWithDeck(deckWithSpecialFirst);
+    openSetupRules();
+    clickButton('Auch Spezialfragen');
+    clickButton('Teams erstellen');
+    clickButton('Spiel starten');
+
+    expectText('Wie viele spezielle Testantworten kann dein Buddy nennen?');
   });
 
   it('keeps at least one question category active', () => {
     openSetupRules();
 
-    clickButton('Allgemeinwissen');
-    clickButton('Kreativ');
-    clickButton('Geographie');
-    clickButton('Körperlich');
+    clickButton('Medien & Popkultur');
+    clickButton('Wörter & Namen');
     clickButton('Essen & Trinken');
-    clickButton('Geschichte');
+    clickButton('Welt & Orte');
+    clickButton('Natur & Wissen');
+    clickButton('Sport & Freizeit');
+    clickButton('Beruf & Gesellschaft');
+    clickButton('Zuhause & Alltag');
+    clickButton('Marken & Technik');
+    clickButton('Geschichte & Kultur');
+    clickButton('Spiele & Kreativität');
+    clickButton('Körperliche Challenges');
 
-    expectButtonSelected('Geschichte', true);
+    expectButtonSelected('Körperliche Challenges', true);
     expectText('Mindestens eine Kategorie muss aktiv bleiben.');
   });
 
@@ -1075,13 +1167,42 @@ describe('App', () => {
     expectNoText('Kategorien');
   });
 
-  it('rejects duplicate player assignments when teams are manually changed', () => {
+  it('warns about duplicate player names without blocking setup', () => {
+    openSetup();
+    clickButton('4 Spieler');
+    fillPlayerNames(['Anna', 'Anna', 'Clara', 'David']);
+
+    expectText('Achtung: Der Name Anna kommt mehrfach vor.');
+
+    clickButton('Weiter zu Einstellungen');
+
+    expectText('Spieldauer');
+  });
+
+  it('swaps players when a player assigned to another slot is selected', () => {
     openSetupRules();
     clickButton('Teams erstellen');
+
     changeSelect('Team 2 Buddy 1', 'p1');
+
+    expect(findSelect('Team 1 Buddy 1').value).toBe('p3');
+    expect(findSelect('Team 2 Buddy 1').value).toBe('p1');
+
     clickButton('Spiel starten');
 
-    expectText('Jeder Spieler darf nur einem Team zugeordnet sein.');
+    expectText('Runde 1 von 6');
+  });
+
+  it('keeps all players selectable in team dropdowns', () => {
+    openSetupRules();
+    clickButton('Teams erstellen');
+
+    const teamOneBuddyOne = findSelect('Team 1 Buddy 1');
+    const teamTwoBuddyOne = findSelect('Team 2 Buddy 1');
+
+    expect(teamOneBuddyOne.querySelector('option[value="p1"]')?.disabled).toBe(false);
+    expect(teamTwoBuddyOne.querySelector('option[value="p1"]')?.disabled).toBe(false);
+    expect(teamTwoBuddyOne.querySelector('option[value="p3"]')?.disabled).toBe(false);
   });
 
   it('rejects unsafe manual team names before starting the game', () => {
@@ -1134,7 +1255,7 @@ describe('App', () => {
     expectText('1 Punkt');
     expectText('+1');
     expectText('Team 1 bekommt 1 Punkt.');
-    expect(playedSoundSources.at(-1)).toContain('sounds/challenge-success.wav');
+    expect(playedSoundSources.at(-1)).toContain('sounds/challenge-success.mp3');
     expectNoText('Sound-Platzhalter');
   });
 
@@ -1194,7 +1315,7 @@ describe('App', () => {
     clickButton('Einsatz +1');
 
     expect(createdAudioElements).toHaveLength(audioCountBeforeBid);
-    expect(playedSoundSources.some((source) => source.includes('sounds/bid.wav'))).toBe(false);
+    expect(playedSoundSources.some((source) => source.includes('sounds/bid.mp3'))).toBe(false);
 
     clickButton('Weitergeben');
     clickButton('Passen');
@@ -1207,7 +1328,7 @@ describe('App', () => {
     clickButton('Ergebnis bestätigen');
 
     expect(createdAudioElements).toHaveLength(audioCountBeforeResult);
-    expect(playedSoundSources.some((source) => source.includes('sounds/challenge-success.wav'))).toBe(
+    expect(playedSoundSources.some((source) => source.includes('sounds/challenge-success.mp3'))).toBe(
       false,
     );
   });
@@ -1217,7 +1338,7 @@ describe('App', () => {
     clickButton('Einsatz +1');
     await flushAudioStart();
 
-    const bidSound = createdAudioElements.find((audio) => audio.src.includes('sounds/bid.wav'));
+    const bidSound = createdAudioElements.find((audio) => audio.src.includes('sounds/bid.mp3'));
 
     expect(bidSound).toBeDefined();
     clickButton('Sounds aus');
@@ -1236,7 +1357,7 @@ describe('App', () => {
     await flushAudioStart();
 
     const failSound = createdAudioElements.find((audio) =>
-      audio.src.includes('sounds/challenge-fail.wav'),
+      audio.src.includes('sounds/challenge-fail.mp3'),
     );
 
     expect(failSound).toBeDefined();
@@ -1251,7 +1372,7 @@ describe('App', () => {
     finishSuccessfulRound();
 
     const successSound = createdAudioElements.find((audio) =>
-      audio.src.includes('sounds/challenge-success.wav'),
+      audio.src.includes('sounds/challenge-success.mp3'),
     );
 
     expect(successSound).toBeDefined();
@@ -1316,7 +1437,7 @@ describe('App', () => {
     clickButton('Ergebnis bestätigen');
 
     const successSound = createdAudioElements.find((audio) =>
-      audio.src.includes('sounds/challenge-success.wav'),
+      audio.src.includes('sounds/challenge-success.mp3'),
     );
 
     expect(successSound).toBeDefined();
@@ -1435,6 +1556,24 @@ describe('App', () => {
     expect(container.querySelector('.challenge-review__score')?.textContent).toContain('2 / 2');
   });
 
+  it('uses elapsed clock time when the challenge timer updates late', () => {
+    vi.useFakeTimers();
+    startFourPlayerGame();
+    clickButton('Einsatz +1');
+    clickButton('Weitergeben');
+    clickButton('Passen');
+    clickButton('Challenge starten');
+
+    vi.setSystemTime(Date.now() + 30_000);
+
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expectText('Timer: 0 Sekunden');
+    expectText('Ergebnis-Check');
+  });
+
   it('allows manual correction before confirming the challenge result', () => {
     startFourPlayerGame();
     clickButton('Einsatz +1');
@@ -1505,7 +1644,7 @@ describe('App', () => {
     clickButton('Ergebnis bestätigen');
 
     expectText('Team 2 bekommt 1 Punkt.');
-    expect(playedSoundSources.at(-1)).toContain('sounds/challenge-fail.wav');
+    expect(playedSoundSources.at(-1)).toContain('sounds/challenge-fail.mp3');
     expectNoText('Sound-Platzhalter');
     expect(container.querySelector('.score-row[data-team-id="t1"]')?.getAttribute('data-round-outcome')).toBe(
       'missed',
@@ -1530,7 +1669,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 60,
         type: 'duration',
-        minBid: 1,
       },
     ];
 
@@ -1579,7 +1717,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 60,
         type: 'duration',
-        minBid: 2,
       },
     ];
 
@@ -1600,7 +1737,7 @@ describe('App', () => {
 
     expectText('Ergebnis-Check');
     expectText('Nicht geschafft');
-    expect(container.querySelector('.challenge-review__score')?.textContent).toContain('1 / 3');
+    expect(container.querySelector('.challenge-review__score')?.textContent).toContain('1 / 2');
     expect(container.querySelector('.challenge-review[data-outcome="failure"]')).not.toBeNull();
     expect(container.querySelector('button.danger-action')?.textContent).toBe(
       'Nicht geschafft bestätigen',
@@ -1615,7 +1752,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 60,
         type: 'duration',
-        minBid: 10,
       },
     ];
 
@@ -1631,29 +1767,36 @@ describe('App', () => {
   });
 
   it('uses drawing-specific wording for drawing challenges', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     const drawingDeck: Question[] = [
       {
         id: 'drawing-test-q1',
-        text: 'Wie viele Testbegriffe kann dein Buddy zeichnen?',
-        category: 'kreativ',
+        text: 'Wie viele Testbegriffe aus einer gezogenen Kategorie kann dein Buddy zeichnen?',
+        category: 'spiele-kreativitaet',
         timeLimit: 60,
         type: 'drawing',
-        minBid: 1,
+        drawingPrompt: 'category',
       },
     ];
 
-    renderAppWithDeck(drawingDeck);
+    try {
+      renderAppWithDeck(drawingDeck);
 
-    prepareFourPlayerRound();
-    clickButton('Einsatzrunde starten');
-    clickButton('Einsatz +1');
-    clickButton('Weitergeben');
-    clickButton('Passen');
+      prepareFourPlayerRound();
+      clickButton('Einsatzrunde starten');
+      clickButton('Einsatz +1');
+      clickButton('Weitergeben');
+      clickButton('Passen');
 
-    expectText('Ben muss 2 Begriffe schaffen');
-    expectText('Zeichenzeit: 60 Sekunden');
-    expectText('Erraten: 0 / Einsatz 2');
-    expectButtonCount('Erraten +1', 1);
+      expectText('Ben muss 2 Begriffe schaffen');
+      expectText('Zeichen-Kategorie');
+      expectText('Gegenstände');
+      expectText('Zeichenzeit: 60 Sekunden');
+      expectText('Erraten: 0 / Einsatz 2');
+      expectButtonCount('Erraten +1', 1);
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 
   it('uses streak-specific controls without a timer', () => {
@@ -1664,7 +1807,6 @@ describe('App', () => {
         category: 'koerperlich',
         timeLimit: 60,
         type: 'streak',
-        minBid: 1,
       },
     ];
 
@@ -1715,7 +1857,7 @@ describe('App', () => {
 
     startFourPlayerGame();
     expectActiveTableTeam('t1');
-    expectText('Mindest-Einsatz');
+    expectText('Startwert');
   });
 
   it('summarizes failed challenge points as all teams except the challenge team', () => {
@@ -1781,6 +1923,73 @@ describe('App', () => {
 
     expect(teamOneSide?.textContent).toContain('Anna bietet');
     expect(teamOneSide?.textContent).toContain('Ben liefert');
+  });
+
+  it('starts replay with unseen questions when enough remain in the current app session', () => {
+    const replayDeck = Array.from({ length: 12 }, (_, index): Question => {
+      const number = index + 1;
+
+      return {
+        id: `replay-q-${number}`,
+        text: `Wie viele Replay-Testantworten ${number} kann dein Buddy nennen?`,
+        category: 'medien-popkultur',
+        timeLimit: 30,
+        type: 'count',
+      };
+    });
+
+    renderAppWithDeck(replayDeck);
+    prepareFourPlayerRound();
+
+    for (let round = 1; round <= 6; round += 1) {
+      expectText(`Wie viele Replay-Testantworten ${round} kann dein Buddy nennen?`);
+      clickButton('Einsatzrunde starten');
+      finishSuccessfulRound();
+
+      if (round < 6) {
+        clickButton('Nächste Runde');
+      }
+    }
+
+    clickButton('Nochmal spielen');
+
+    expectText('Wie viele Replay-Testantworten 7 kann dein Buddy nennen?');
+    expectNoText('Wie viele Replay-Testantworten 1 kann dein Buddy nennen?');
+  });
+
+  it('treats skipped prompts as seen when building the replay deck', () => {
+    const replayDeck = Array.from({ length: 14 }, (_, index): Question => {
+      const number = index + 1;
+
+      return {
+        id: `skip-replay-q-${number}`,
+        text: `Wie viele Skip-Replay-Testantworten ${number} kann dein Buddy nennen?`,
+        category: 'medien-popkultur',
+        timeLimit: 30,
+        type: 'count',
+      };
+    });
+
+    renderAppWithDeck(replayDeck);
+    prepareFourPlayerRound();
+    expectText('Wie viele Skip-Replay-Testantworten 1 kann dein Buddy nennen?');
+
+    clickButton('Frage überspringen');
+    expectText('Wie viele Skip-Replay-Testantworten 2 kann dein Buddy nennen?');
+
+    for (let round = 1; round <= 6; round += 1) {
+      clickButton('Einsatzrunde starten');
+      finishSuccessfulRound();
+
+      if (round < 6) {
+        clickButton('Nächste Runde');
+      }
+    }
+
+    clickButton('Nochmal spielen');
+
+    expectText('Wie viele Skip-Replay-Testantworten 8 kann dein Buddy nennen?');
+    expectNoText('Wie viele Skip-Replay-Testantworten 1 kann dein Buddy nennen?');
   });
 
   it('makes the finale visually distinct and lets players adjust settings before replaying', () => {
@@ -1852,18 +2061,16 @@ describe('App', () => {
       {
         id: 'test-q1',
         text: 'Wie viele Testbegriffe schafft Buddy A?',
-        category: 'allgemeinwissen',
+        category: 'medien-popkultur',
         timeLimit: 30,
         type: 'count',
-        minBid: 1,
       },
       {
         id: 'test-q2',
         text: 'Wie viele Testbegriffe schafft Buddy B?',
-        category: 'kreativ',
+        category: 'spiele-kreativitaet',
         timeLimit: 30,
         type: 'count',
-        minBid: 2,
       },
     ];
 
@@ -1889,7 +2096,7 @@ describe('App', () => {
     expectText('Wie viele Testbegriffe schafft Buddy B?');
     expectNoText('Höchster Einsatz');
     clickButton('Einsatzrunde starten');
-    expectText('Mindest-Einsatz');
-    expect(container.querySelector('.table-bid-display strong')?.textContent).toBe('2');
+    expectText('Startwert');
+    expect(container.querySelector('.table-bid-display strong')?.textContent).toBe('1');
   });
 });
