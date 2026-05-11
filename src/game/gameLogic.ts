@@ -56,7 +56,7 @@ export function createBiddingState(
 
   return {
     activeTeamId: firstTeamId,
-    currentBid: question.minBid,
+    currentBid: 1,
     highestBidTeamId: null,
     passedTeamIds: [],
     status: 'bidding',

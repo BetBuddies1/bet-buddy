@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
   canPassBid,
   createBiddingState,
@@ -29,10 +29,9 @@ const teams: Team[] = [
 const question: Question = {
   id: 'q1',
   text: 'Wie viele Hauptstädte kann dein Buddy nennen?',
-  category: 'allgemeinwissen',
+  category: 'welt-orte',
   timeLimit: 30,
   type: 'count',
-  minBid: 1,
 };
 
 describe('gameLogic', () => {
@@ -105,7 +104,7 @@ describe('gameLogic', () => {
     });
   });
 
-  it('starts bidding with all teams active and the question minimum bid', () => {
+  it('starts bidding with all teams active and a bid of one', () => {
     expect(createBiddingState(teams, question, 't2')).toEqual({
       activeTeamId: 't2',
       currentBid: 1,

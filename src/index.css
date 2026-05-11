@@ -22,6 +22,7 @@
   --lime: #70e000;
   --lime-bright: #b7ff2d;
   --orange: #ff9f1c;
+  --yellow: #ffdc5e;
   --danger: #ff4d6d;
   --shadow: rgb(0 0 0 / 38%);
 }
@@ -539,10 +540,21 @@ h3 {
   gap: 9px;
 }
 
+.level-control {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .category-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 9px;
+}
+
+.setup-hint {
+  margin: 8px 0 0;
+  color: var(--quiet);
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .exception-counts {
@@ -619,10 +631,36 @@ h3 {
   min-height: 46px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgb(2 11 31 / 72%);
   color: var(--text);
   padding: 0 13px;
   box-shadow: inset 0 0 20px rgb(0 0 0 / 16%);
+}
+
+.field input {
+  background: rgb(2 11 31 / 72%);
+}
+
+.field select {
+  appearance: none;
+  padding-right: 44px;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--cyan) 50%) calc(100% - 22px) 50% / 7px 7px no-repeat,
+    linear-gradient(135deg, var(--cyan) 50%, transparent 50%) calc(100% - 17px) 50% / 7px 7px no-repeat,
+    linear-gradient(90deg, transparent, rgb(83 215 255 / 10%) 72%, rgb(83 215 255 / 18%)),
+    rgb(2 11 31 / 80%);
+  cursor: pointer;
+}
+
+.field select option {
+  background: #061a3d;
+  color: var(--text);
+}
+
+.setup-warning {
+  margin: -2px 0 0;
+  color: var(--yellow);
+  font-size: 14px;
+  font-weight: 850;
 }
 
 .team-editor {
@@ -997,6 +1035,33 @@ h3 {
     transform: scale(1.22);
     opacity: 1;
   }
+}
+
+.drawing-category-callout {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  border: 1px solid rgb(83 215 255 / 34%);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(145deg, rgb(83 215 255 / 16%), rgb(112 224 0 / 8%)),
+    rgb(2 11 31 / 54%);
+  box-shadow: inset 0 0 20px rgb(83 215 255 / 8%);
+}
+
+.drawing-category-callout span {
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.drawing-category-callout strong {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.08;
 }
 
 .timer-value,
@@ -1915,7 +1980,7 @@ h3 {
 @media (max-width: 520px) {
   .app-shell {
     gap: 14px;
-    padding: 12px;
+    padding: 14px max(16px, env(safe-area-inset-right)) 18px max(16px, env(safe-area-inset-left));
     overflow-x: hidden;
     overflow-y: auto;
   }
@@ -1925,7 +1990,8 @@ h3 {
   }
 
   .workspace {
-    width: min(100%, 420px);
+    width: 100%;
+    max-width: 420px;
     gap: 16px;
     padding: 14px;
   }

@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 function localDevCsp() {
@@ -18,7 +17,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     localDevCsp(),
     react(),
-    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
@@ -49,7 +47,6 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         navigateFallback: '/bet-buddy/index.html',
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,webp,wav,mp3,json}'],
-        globIgnores: ['**/icons/*.png'],
       },
     }),
   ],
