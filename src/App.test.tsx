@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import type { Question } from './game/types';
 
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean;
+}
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement;
@@ -12,7 +16,8 @@ let originalAudio: typeof Audio;
 let originalConfirm: typeof window.confirm;
 let originalScrollTo: typeof window.scrollTo;
 let playedSoundSources: string[];
-let scrollToMock: ReturnType<typeof vi.fn>;
+type ScrollTo = (optionsOrX?: ScrollToOptions | number, y?: number) => void;
+let scrollToMock: ReturnType<typeof vi.fn<ScrollTo>>;
 type TestAudioElement = {
   currentTime: number;
   loop: boolean;
@@ -285,7 +290,7 @@ describe('App', () => {
     originalAudio = window.Audio;
     originalConfirm = window.confirm;
     originalScrollTo = window.scrollTo;
-    scrollToMock = vi.fn();
+    scrollToMock = vi.fn<ScrollTo>();
     window.confirm = vi.fn(() => true);
     window.scrollTo = scrollToMock;
     window.Audio = class TestAudio {
@@ -1200,9 +1205,9 @@ describe('App', () => {
     const teamOneBuddyOne = findSelect('Team 1 Buddy 1');
     const teamTwoBuddyOne = findSelect('Team 2 Buddy 1');
 
-    expect(teamOneBuddyOne.querySelector('option[value="p1"]')?.disabled).toBe(false);
-    expect(teamTwoBuddyOne.querySelector('option[value="p1"]')?.disabled).toBe(false);
-    expect(teamTwoBuddyOne.querySelector('option[value="p3"]')?.disabled).toBe(false);
+    expect(teamOneBuddyOne.querySelector<HTMLOptionElement>('option[value="p1"]')?.disabled).toBe(false);
+    expect(teamTwoBuddyOne.querySelector<HTMLOptionElement>('option[value="p1"]')?.disabled).toBe(false);
+    expect(teamTwoBuddyOne.querySelector<HTMLOptionElement>('option[value="p3"]')?.disabled).toBe(false);
   });
 
   it('rejects unsafe manual team names before starting the game', () => {
