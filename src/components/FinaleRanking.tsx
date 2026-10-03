@@ -9,13 +9,15 @@ export function FinaleRanking({ teams, players }: { teams: Team[]; players: Play
     <section className="finale-ranking" aria-label="Endstand">
       <p className="eyebrow">Endstand</p>
       <div className="finale-ranking-list">
-        {rankedTeams.map((team, index) => (
+        {rankedTeams.map((team) => (
           <article
-            className={`finale-ranking-row ${index === 0 ? 'is-winner' : ''}`}
+            className={`finale-ranking-row ${team.score === rankedTeams[0].score ? 'is-winner' : ''}`}
             data-team-id={team.id}
             key={team.id}
           >
-            <div className="finale-rank-place">{index + 1}.</div>
+            <div className="finale-rank-place">
+              {rankedTeams.findIndex((candidate) => candidate.score === team.score) + 1}.
+            </div>
             <div>
               <h3>{team.name}</h3>
               <p>

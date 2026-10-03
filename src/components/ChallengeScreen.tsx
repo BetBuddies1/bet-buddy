@@ -10,6 +10,7 @@ import {
   type TeamRoundRole,
 } from '../game/formatters';
 import type { BiddingState, Question, Team } from '../game/types';
+import { AnswerRules } from './AnswerRules';
 import { ChallengeIllustration } from './ChallengeIllustration';
 
 type ActiveChallengeState = Extract<BiddingState, { status: 'challenge' }>;
@@ -188,6 +189,15 @@ export function ChallengeScreen({
                     {challengeState.count} / {biddingState.currentBid}
                   </p>
                 </div>
+                {question.type === 'count' && question.category !== 'koerperlich' ? (
+                  <div className="challenge-review__answer-rules">
+                    <p className="challenge-review__hint">
+                      Antworten gemeinsam prüfen: passend, unterschiedlich und nach dem
+                      Fragetext gezählt.
+                    </p>
+                    <AnswerRules />
+                  </div>
+                ) : null}
                 <div className="challenge-review__stepper" aria-label="Zählwert anpassen">
                   <button
                     className="secondary-action tracker-action tracker-action-decrease"

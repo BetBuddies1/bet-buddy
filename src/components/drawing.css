@@ -1,0 +1,227 @@
+.app-shell.drawing-active {
+  box-sizing: border-box;
+  height: 100dvh;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: 8px;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  overflow: hidden;
+}
+
+.drawing-active .game-header {
+  display: block;
+}
+
+.drawing-active .game-header .brand-lockup {
+  display: none;
+}
+
+.drawing-active .game-header .header-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.drawing-active .game-hud {
+  display: flex;
+  justify-content: flex-start;
+  gap: 4px 8px;
+  font-size: 0.7rem;
+}
+
+.drawing-active .header-sound-action,
+.drawing-active .header-home-action {
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 0.7rem;
+  line-height: 1.1;
+}
+
+.drawing-challenge {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid rgb(83 215 255 / 65%);
+  border-radius: 14px;
+  background: #061a3d;
+  color: #fff;
+}
+
+.drawing-challenge.faces-opponent {
+  transform: rotate(180deg);
+}
+
+.drawing-challenge__header h2 {
+  margin: 0;
+  font-size: clamp(0.9rem, 3.8vw, 1.25rem);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.drawing-challenge__header p {
+  margin: 3px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.drawing-challenge__metrics {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 0.85rem;
+}
+
+.drawing-challenge__metrics strong {
+  color: #b5ff48;
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.drawing-board {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.drawing-board__surface {
+  display: block;
+  flex: 1;
+  width: 100%;
+  height: 0;
+  min-height: 80px;
+  border-radius: 9px;
+  background: #fff;
+  color: #07162a;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
+}
+
+.drawing-board__tools,
+.drawing-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.drawing-challenge button {
+  min-height: 44px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px;
+  font-size: 0.85rem;
+  line-height: 1.15;
+  touch-action: manipulation;
+}
+
+.drawing-board__tools button {
+  padding: 6px;
+  font-size: 0.75rem;
+}
+
+.drawing-challenge .drawing-finish {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 8px;
+  background: transparent;
+  color: #d7e5fa;
+  font-size: 0.75rem;
+}
+
+.drawing-secret,
+.drawing-review {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+  min-height: 0;
+  overflow: auto;
+  text-align: center;
+}
+
+.drawing-secret > *,
+.drawing-review > * {
+  flex-shrink: 0;
+}
+
+.drawing-secret > :first-child,
+.drawing-review > :first-child {
+  margin-top: auto;
+}
+
+.drawing-secret > :last-child,
+.drawing-review > :last-child {
+  margin-bottom: auto;
+}
+
+.drawing-secret h3,
+.drawing-review h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.drawing-secret p,
+.drawing-review p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.drawing-secret .drawing-secret__word {
+  padding: 16px 8px;
+  border: 2px dashed #b5ff48;
+  border-radius: 10px;
+  color: #b5ff48;
+  font-size: clamp(1.5rem, 7vw, 2.3rem);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.drawing-secret .drawing-time-note {
+  color: #ffd180;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.drawing-secret .drawing-rules {
+  color: #bdd0ea;
+  font-size: 0.75rem;
+}
+
+.drawing-review[data-outcome='success'] h3 {
+  color: #b5ff48;
+}
+
+.drawing-review[data-outcome='failure'] h3 {
+  color: #ffb1ab;
+}
+
+@media (max-height: 720px) {
+  .drawing-secret,
+  .drawing-review {
+    gap: 9px;
+  }
+
+  .drawing-secret .drawing-secret__word {
+    padding: 10px 8px;
+  }
+}

@@ -6,18 +6,19 @@ export const drawingCategoryOptions = [
   'Gegenstände',
   'Sport',
   'Tiere',
-  'Marken',
+  'Berufe',
 ] as const;
 
 export function createReadyChallengeState(
   question: Question,
   currentBid: number,
   random = Math.random,
+  preparedDrawingCategory?: string,
 ): ChallengeState {
   const seconds = getInitialChallengeSeconds(question, currentBid);
   const drawingCategory =
     question.type === 'drawing' && question.drawingPrompt === 'category'
-      ? drawDrawingCategory(random)
+      ? preparedDrawingCategory ?? drawDrawingCategory(random)
       : undefined;
 
   return {
@@ -30,7 +31,7 @@ export function createReadyChallengeState(
   };
 }
 
-function drawDrawingCategory(random: () => number) {
+export function drawDrawingCategory(random: () => number = Math.random) {
   const categoryIndex = Math.min(
     drawingCategoryOptions.length - 1,
     Math.floor(random() * drawingCategoryOptions.length),

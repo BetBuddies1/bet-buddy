@@ -52,9 +52,10 @@ export function SetupScreen({
         <>
           <section aria-labelledby="player-count-title">
             <h3 id="player-count-title">Spieleranzahl</h3>
-            <div className="segmented-control" aria-label="Spieleranzahl wählen">
+            <div className="segmented-control number-control" aria-label="Spieleranzahl wählen">
               {standardPlayerCountOptions.map((count) => (
                 <button
+                  aria-pressed={playerCount === count}
                   className={playerCount === count ? 'is-selected' : ''}
                   key={count}
                   onClick={() => onChoosePlayerCount(count)}
@@ -69,6 +70,7 @@ export function SetupScreen({
               <div className="exception-count-grid">
                 {exceptionPlayerCountOptions.map((count) => (
                   <button
+                    aria-pressed={playerCount === count}
                     className={playerCount === count ? 'is-selected' : ''}
                     key={count}
                     onClick={() => onChoosePlayerCount(count)}
@@ -111,9 +113,10 @@ export function SetupScreen({
         <>
           <section aria-labelledby="round-count-title">
             <h3 id="round-count-title">Spieldauer</h3>
-            <div className="segmented-control" aria-label="Spieldauer wählen">
+            <div className="segmented-control number-control" aria-label="Spieldauer wählen">
               {roundCountOptions.map((count) => (
                 <button
+                  aria-pressed={roundCount === count}
                   className={roundCount === count ? 'is-selected' : ''}
                   key={count}
                   onClick={() => onChooseRoundCount(count)}

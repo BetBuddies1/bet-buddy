@@ -43,8 +43,11 @@ export function AppHeader({
               Runde {Math.min(currentRound, roundCount)} von {roundCount}
             </span>
             <span className="score-chip">
-              <span className="score-label">Score</span>
-              <span className="score-value score-value-full">{formatScoreSummary(teams)}</span>
+              <span className="visually-hidden">Punktestand: {formatScoreSummary(teams)}</span>
+              <span className="score-label" aria-hidden="true">Score</span>
+              <span className="score-value score-value-full" aria-hidden="true">
+                {formatScoreSummary(teams)}
+              </span>
               <span className="score-value score-value-compact" aria-hidden="true">
                 {formatCompactScoreSummary(teams)}
               </span>

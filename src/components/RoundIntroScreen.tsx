@@ -1,12 +1,14 @@
 import { formatQuestionSkipAction } from '../game/formatters';
 import type { Question, Team } from '../game/types';
 import { ChallengeIllustration } from './ChallengeIllustration';
+import { DrawingCategory } from './DrawingCategory';
 import { RoundMetaPills } from './RoundMetaPills';
 import { QuestionTablePanel } from './TableMode';
 
 type RoundIntroScreenProps = {
   canSkipCurrentQuestion: boolean;
   currentRound: number;
+  drawingCategory?: string;
   onSkipCurrentQuestion: () => void;
   onStartBiddingRound: () => void;
   question: Question;
@@ -19,6 +21,7 @@ type RoundIntroScreenProps = {
 export function RoundIntroScreen({
   canSkipCurrentQuestion,
   currentRound,
+  drawingCategory,
   onSkipCurrentQuestion,
   onStartBiddingRound,
   question,
@@ -36,6 +39,7 @@ export function RoundIntroScreen({
         <QuestionTablePanel
           className="is-opponent"
           currentRound={currentRound}
+          drawingCategory={drawingCategory}
           question={question}
           roundCount={roundCount}
         />
@@ -45,6 +49,10 @@ export function RoundIntroScreen({
           Runde {currentRound} von {roundCount}
         </p>
         <h2 id="round-title">{question.text}</h2>
+        <DrawingCategory category={drawingCategory} />
+        {question.type === 'drawing' ? (
+          <p className="round-meta">Auf dem Smartphone zeichnen. Die App gibt geheime Begriffe vor.</p>
+        ) : null}
         <ChallengeIllustration question={question} />
         <RoundMetaPills question={question} />
       </div>

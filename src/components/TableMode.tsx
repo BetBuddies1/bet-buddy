@@ -6,15 +6,18 @@ import {
 } from '../game/formatters';
 import type { Question, Team } from '../game/types';
 import { BidDisplay } from './BidDisplay';
+import { DrawingCategory } from './DrawingCategory';
 
 export function QuestionTablePanel({
   className,
   currentRound,
+  drawingCategory,
   question,
   roundCount,
 }: {
   className: string;
   currentRound: number;
+  drawingCategory?: string;
   question: Question;
   roundCount: number;
 }) {
@@ -22,6 +25,7 @@ export function QuestionTablePanel({
     <div className={`table-question-panel ${className}`} aria-hidden={className === 'is-opponent'}>
       <p className="eyebrow">Runde {currentRound} von {roundCount}</p>
       <p className="table-question-text">{question.text}</p>
+      <DrawingCategory category={drawingCategory} />
       <p className="round-meta">
         {getCategoryLabel(question.category)} · {question.timeLimit} Sekunden
       </p>
@@ -32,14 +36,18 @@ export function QuestionTablePanel({
 export function BiddingCenterQuestion({
   activeTeam,
   activeTeamRole,
+  bidLimitMessage,
   currentBid,
+  drawingCategory,
   facesOpponent,
   holdingTeam,
   question,
 }: {
   activeTeam: Team | undefined;
   activeTeamRole: TeamRoundRole | undefined;
+  bidLimitMessage?: string;
   currentBid: number;
+  drawingCategory?: string;
   facesOpponent: boolean;
   holdingTeam: Team | undefined;
   question: Question;
@@ -55,6 +63,8 @@ export function BiddingCenterQuestion({
           <p className="table-role-line">{formatBiddingRole(activeTeamRole)}</p>
         ) : null}
         <p className="table-question-text">{question.text}</p>
+        <DrawingCategory category={drawingCategory} />
+        {bidLimitMessage ? <p className="round-meta" role="status">{bidLimitMessage}</p> : null}
         <BidDisplay
           currentBid={currentBid}
           question={question}
@@ -72,6 +82,7 @@ export function BiddingCenterQuestion({
 export function TableSideControls({
   canEndTurn,
   canPass,
+  canRaise,
   className,
   isActive,
   onEndTurn,
@@ -82,6 +93,7 @@ export function TableSideControls({
 }: {
   canEndTurn: boolean;
   canPass: boolean;
+  canRaise: boolean;
   className: string;
   isActive: boolean;
   onEndTurn: () => void;
@@ -113,6 +125,7 @@ export function TableSideControls({
             aria-label="Einsatz +1"
             className="primary-action table-side-action-button"
             data-action="raise"
+            disabled={!canRaise}
             onClick={onRaise}
             type="button"
           >

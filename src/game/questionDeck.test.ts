@@ -13,7 +13,7 @@ describe('questionDeck', () => {
     const questions = getQuestionBank();
     const categories = new Set(questions.map((question) => question.category));
 
-    expect(questions).toHaveLength(345);
+    expect(questions).toHaveLength(336);
     expect(categories).toEqual(
       new Set([
         'medien-popkultur',
@@ -41,17 +41,17 @@ describe('questionDeck', () => {
 
     expect(counts).toMatchObject({
       'medien-popkultur': 29,
-      'woerter-namen': 53,
+      'woerter-namen': 52,
       'essen-trinken': 46,
       'welt-orte': 50,
       'natur-wissen': 18,
-      'sport-freizeit': 21,
+      'sport-freizeit': 20,
       'beruf-gesellschaft': 20,
-      'zuhause-alltag': 31,
+      'zuhause-alltag': 29,
       'marken-technik': 16,
-      'geschichte-kultur': 29,
-      'spiele-kreativitaet': 16,
-      koerperlich: 16,
+      'geschichte-kultur': 27,
+      'spiele-kreativitaet': 14,
+      koerperlich: 15,
     });
   });
 
@@ -100,7 +100,7 @@ describe('questionDeck', () => {
       },
     ];
 
-    expect(specialQuestionIds).toHaveLength(44);
+    expect(specialQuestionIds).toHaveLength(43);
     expect(specialQuestionIds).toContain('q-allgemeinwissen-harry-potter-zaubersprueche');
     expect(specialQuestionIds).toContain('candidate-allgemeinwissen-ikea-produktnamen');
     expect(specialQuestionIds).not.toContain('candidate-allgemeinwissen-hochzeitsjubilaeen');
@@ -268,6 +268,72 @@ describe('questionDeck', () => {
         seenQuestionIds: ['q-seen'],
       }).map((question) => question.id),
     ).toEqual(['q-unseen-a', 'q-unseen-b']);
+  });
+
+  it('spreads the real catalogue after category and level filters without losing variants', () => {
+    const questions = createQuestionDeck(() => 0.35);
+    const categories = [...new Set(questions.map((question) => question.category))];
+
+    for (const selectedCategories of [categories, ...categories.map((category) => [category])]) {
+      for (const includeSpecialQuestions of [false, true]) {
+        const eligible = questions.filter(
+          (question) => selectedCategories.includes(question.category) &&
+            (includeSpecialQuestions || !question.isSpecial),
+        );
+        const arranged = filterQuestionsByCategories(questions, selectedCategories, {
+          includeSpecialQuestions,
+        });
+        const familyKey = (question: Question) => question.topicFamily
+          ? `family:${question.topicFamily}`
+          : `question:${question.id}`;
+        const availableFamilies = new Set(eligible.map(familyKey));
+
+        expect(arranged.map((question) => question.id).sort()).toEqual(
+          eligible.map((question) => question.id).sort(),
+        );
+        expect(new Set(arranged.slice(0, availableFamilies.size).map(familyKey))).toEqual(
+          availableFamilies,
+        );
+      }
+    }
+  });
+
+  it('keeps all name variants but starts with a gender-neutral one', () => {
+    const questions = filterQuestionsByCategories(getQuestionBank(), ['woerter-namen']);
+    const names = questions.filter((question) => question.topicFamily === 'vornamen');
+
+    expect(names).toHaveLength(22);
+    expect(names.filter((question) => question.preferredInFamily)).toHaveLength(8);
+    expect(names[0].preferredInFamily).toBe(true);
+
+    const replay = filterQuestionsForReplay(getQuestionBank(), ['woerter-namen'], {
+      seenQuestionIds: names.filter((question) => question.preferredInFamily).map((question) => question.id),
+      minimumQuestionCount: 10,
+    });
+    const remainingNames = replay.filter((question) => question.topicFamily === 'vornamen');
+    expect(remainingNames).toHaveLength(14);
+    expect(remainingNames.every((question) => !question.preferredInFamily)).toBe(true);
+  });
+
+  it('rebalances remaining replay variants after seen representatives have been removed', () => {
+    const questions: Question[] = [
+      { id: 'seen-name', text: 'Name', category: 'woerter-namen', type: 'count', timeLimit: 30, topicFamily: 'names' },
+      { id: 'seen-word', text: 'Word', category: 'woerter-namen', type: 'count', timeLimit: 30, topicFamily: 'words' },
+      { id: 'name-a', text: 'Name A', category: 'woerter-namen', type: 'count', timeLimit: 30, topicFamily: 'names' },
+      { id: 'name-b', text: 'Name B', category: 'woerter-namen', type: 'count', timeLimit: 30, topicFamily: 'names' },
+      { id: 'word-a', text: 'Word A', category: 'woerter-namen', type: 'count', timeLimit: 30, topicFamily: 'words' },
+      { id: 'standalone', text: 'Other', category: 'woerter-namen', type: 'count', timeLimit: 30 },
+    ];
+    const replay = filterQuestionsForReplay(questions, ['woerter-namen'], {
+      seenQuestionIds: ['seen-name', 'seen-word'],
+      minimumQuestionCount: 4,
+    });
+
+    expect(replay).toHaveLength(4);
+    expect(replay.slice(0, 3).map((question) => question.topicFamily ?? question.id).sort()).toEqual(
+      ['names', 'standalone', 'words'],
+    );
+    expect(replay.some((question) => question.id.startsWith('seen-'))).toBe(false);
   });
 
   it('falls back to the full filtered replay deck when too few unseen questions remain', () => {

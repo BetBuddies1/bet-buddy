@@ -12,7 +12,6 @@ import {
 import type { BiddingState, CategoryId, Player, Question, Team } from './game/types';
 import {
   createQuestionDeck,
-  filterQuestionsByCategories,
   filterQuestionsForReplay,
   findNextPlayableQuestionIndex,
 } from './game/questionDeck';
@@ -23,6 +22,7 @@ import { isGamePhase, requiresGameExitConfirmation, type Phase } from './appType
 import { AppHeader } from './components/AppHeader';
 import { BiddingScreen } from './components/BiddingScreen';
 import { ChallengeScreen } from './components/ChallengeScreen';
+import { DrawingChallenge } from './components/DrawingChallenge';
 import { FinishedScreen } from './components/FinishedScreen';
 import { RulesScreen } from './components/RulesScreen';
 import { RoundIntroScreen } from './components/RoundIntroScreen';
@@ -32,7 +32,8 @@ import { TeamsScreen } from './components/TeamsScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { defaultSelectedCategories } from './game/categories';
 import type { ChallengeState } from './game/challengeTypes';
-import { createReadyChallengeState, getCurrentChallengeTiming } from './game/challengeTiming';
+import { createReadyChallengeState, drawDrawingCategory, getCurrentChallengeTiming } from './game/challengeTiming';
+import { getDrawingPromptCount } from './game/drawingPrompts';
 import {
   formatPointResult,
   type TeamRoundRole,
@@ -79,6 +80,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   const [challengeState, setChallengeState] = useState<ChallengeState | null>(null);
   const [roundIndex, setRoundIndex] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [roundDrawingCategory, setRoundDrawingCategory] = useState<string | undefined>();
   const [questionDeck, setQuestionDeck] = useState<Question[]>(() => createDeck());
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -129,6 +131,11 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       : false;
   const activeTeamCanPassBid =
     biddingState?.status === 'bidding' ? canPassBid(biddingState, biddingState.activeTeamId) : false;
+  const maximumDrawingBid = activeQuestion.type === 'drawing'
+    ? getDrawingPromptCount(activeQuestion, roundDrawingCategory)
+    : undefined;
+  const activeTeamCanRaiseBid = biddingState?.status === 'bidding' &&
+    (maximumDrawingBid === undefined || biddingState.currentBid < maximumDrawingBid);
   const activeTeamRole =
     biddingState?.status === 'bidding'
       ? teamRoundRoles.get(biddingState.activeTeamId)
@@ -172,7 +179,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [phase]);
+  }, [phase, setupStep]);
 
   useEffect(() => {
     if (!shouldConfirmGameExit) {
@@ -401,10 +408,24 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     );
   }
 
-  function startGame() {
-    const nextQuestionDeck = filterQuestionsByCategories(createDeck(), selectedCategories, {
+  function createNextQuestionDeck() {
+    return filterQuestionsForReplay(createDeck(), selectedCategories, {
       includeSpecialQuestions,
+      minimumQuestionCount: roundCount,
+      seenQuestionIds,
     });
+  }
+
+  function prepareRoundQuestion(question: Question) {
+    setRoundDrawingCategory(
+      question.type === 'drawing'
+        ? question.drawingPrompt === 'category' ? drawDrawingCategory() : 'Markenlogos'
+        : undefined,
+    );
+  }
+
+  function startGame() {
+    const nextQuestionDeck = createNextQuestionDeck();
     const nextTeams: Team[] = [];
 
     for (const [index, draft] of teamDrafts.entries()) {
@@ -436,6 +457,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     }
 
     setTeams(nextTeams);
+    prepareRoundQuestion(nextQuestionDeck[0]);
     setQuestionDeck(nextQuestionDeck);
     setRoundIndex(0);
     setQuestionIndex(0);
@@ -457,7 +479,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   }
 
   function handleRaiseBid() {
-    if (biddingState?.status !== 'bidding') {
+    if (biddingState?.status !== 'bidding' || !activeTeamCanRaiseBid) {
       return;
     }
 
@@ -497,7 +519,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setBiddingState(nextBiddingState);
     setChallengeState(
       nextBiddingState.status === 'challenge'
-        ? createReadyChallengeState(activeQuestion, nextBiddingState.currentBid)
+        ? createReadyChallengeState(activeQuestion, nextBiddingState.currentBid, Math.random, roundDrawingCategory)
         : null,
     );
     setPhase(nextBiddingState.status === 'challenge' ? 'challenge' : 'bidding');
@@ -536,7 +558,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
   function reviewChallengeResult() {
     setChallengeState((currentChallengeState) =>
       currentChallengeState === null ||
-      (currentChallengeState.status === 'ready' && activeQuestion.type !== 'streak')
+      (currentChallengeState.status === 'ready' && activeQuestion.type !== 'streak' && activeQuestion.type !== 'drawing')
         ? currentChallengeState
         : { ...currentChallengeState, status: 'review' },
     );
@@ -609,6 +631,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     const firstTeam = teams[nextRoundIndex % teams.length];
 
     setRoundIndex(nextRoundIndex);
+    prepareRoundQuestion(questionDeck[nextPlayableQuestionIndex % questionDeck.length]);
     setQuestionIndex(nextPlayableQuestionIndex);
     setChallengeState(null);
     setRecentPointTeamIds([]);
@@ -628,11 +651,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       return;
     }
 
-    const nextQuestionDeck = filterQuestionsForReplay(createDeck(), selectedCategories, {
-      includeSpecialQuestions,
-      minimumQuestionCount: roundCount,
-      seenQuestionIds,
-    });
+    const nextQuestionDeck = createNextQuestionDeck();
 
     if (nextQuestionDeck.length === 0) {
       setMessage('Für die aktive Kategorieauswahl sind keine Fragen verfügbar.');
@@ -642,6 +661,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     const resetTeams = teams.map((team) => ({ ...team, score: 0 }));
 
     setTeams(resetTeams);
+    prepareRoundQuestion(nextQuestionDeck[0]);
     setQuestionDeck(nextQuestionDeck);
     setRoundIndex(0);
     setQuestionIndex(0);
@@ -705,6 +725,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
 
     const firstTeam = teams[roundIndex % teams.length];
 
+    prepareRoundQuestion(questionDeck[nextPlayableQuestionIndex % questionDeck.length]);
     setQuestionIndex(nextPlayableQuestionIndex);
     setChallengeState(null);
     setRecentPointTeamIds([]);
@@ -748,13 +769,14 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
     setRoundIndex(0);
     setQuestionIndex(0);
     setQuestionDeck(createDeck());
+    setRoundDrawingCategory(undefined);
     setRecentPointTeamIds([]);
     setTeamQuestionSkipCounts({});
     setMessage(null);
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${phase === 'challenge' && activeQuestion.type === 'drawing' ? 'drawing-active' : ''}`}>
       <div className="ambient-shapes" aria-hidden="true">
         <span className="shape shape-ribbon" />
         <span className="shape shape-pill" />
@@ -823,6 +845,7 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
         <RoundIntroScreen
           canSkipCurrentQuestion={canSkipCurrentQuestion}
           currentRound={currentRound}
+          drawingCategory={roundDrawingCategory}
           onSkipCurrentQuestion={skipCurrentQuestion}
           onStartBiddingRound={startBiddingRound}
           question={activeQuestion}
@@ -837,8 +860,11 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
         <BiddingScreen
           activeTeamCanEndBidTurn={activeTeamCanEndBidTurn}
           activeTeamCanPassBid={activeTeamCanPassBid}
+          activeTeamCanRaiseBid={activeTeamCanRaiseBid}
           activeTeamRole={activeTeamRole}
           biddingState={biddingState}
+          drawingCategory={roundDrawingCategory}
+          maximumDrawingBid={maximumDrawingBid}
           onEndBidTurn={handleEndBidTurn}
           onPassBid={handlePassBid}
           onRaiseBid={handleRaiseBid}
@@ -851,7 +877,23 @@ export default function App({ createDeck = createQuestionDeck }: AppProps) {
       ) : null}
 
       {phase === 'challenge' && biddingState?.status === 'challenge' ? (
-        <ChallengeScreen
+        activeQuestion.type === 'drawing' && challengeState !== null ? (
+          <DrawingChallenge
+            question={activeQuestion}
+            challengeState={challengeState}
+            challengeTeam={challengeTeam}
+            challengeTeamRole={challengeTeamRole}
+            judgingTeam={challengeFacingTeam}
+            facingClass={usesTableMode && challengeTeam?.id === teams[1]?.id ? 'faces-opponent' : 'faces-home'}
+            currentBid={biddingState.currentBid}
+            wasSuccessful={challengeWasSuccessful}
+            onStart={startChallengeTimer}
+            onIncrease={increaseTracker}
+            onDecrease={decreaseTracker}
+            onReview={reviewChallengeResult}
+            onConfirm={confirmChallengeResult}
+          />
+        ) : <ChallengeScreen
           biddingState={biddingState}
           challengeFacingClass={challengeFacingClass}
           challengeFacingTeam={challengeFacingTeam}

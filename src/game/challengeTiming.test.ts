@@ -33,4 +33,14 @@ describe('challengeTiming', () => {
 
     expect(createReadyChallengeState(logosQuestion, 2, () => 0).drawingCategory).toBeUndefined();
   });
+
+  it('keeps the category announced before bidding instead of drawing another one', () => {
+    const question: Question = {
+      id: 'q-kreativ-zeichnen-kategorie', text: 'Zeichnen', category: 'spiele-kreativitaet',
+      timeLimit: 60, type: 'drawing', drawingPrompt: 'category',
+    };
+    expect(createReadyChallengeState(question, 3, () => 0, 'Berufe')).toMatchObject({
+      drawingCategory: 'Berufe', count: 0, secondsLeft: 60, status: 'ready',
+    });
+  });
 });

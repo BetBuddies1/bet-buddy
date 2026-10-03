@@ -32,6 +32,10 @@ export type Question = {
   type: 'count' | 'duration' | 'drawing' | 'streak';
   isSpecial?: boolean;
   drawingPrompt?: 'category';
+  /** Related variants are spread across the deck instead of drawn consecutively. */
+  topicFamily?: string;
+  /** Prefer this variant when its family first appears; retain all other variants. */
+  preferredInFamily?: boolean;
 };
 
 export type BiddingState =

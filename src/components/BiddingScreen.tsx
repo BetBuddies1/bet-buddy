@@ -5,6 +5,7 @@ import {
 } from '../game/formatters';
 import type { BiddingState, Question, Team } from '../game/types';
 import { BidDisplay } from './BidDisplay';
+import { DrawingCategory } from './DrawingCategory';
 import {
   BiddingCenterQuestion,
   TableSideControls,
@@ -15,8 +16,11 @@ type ActiveBiddingState = Extract<BiddingState, { status: 'bidding' }>;
 type BiddingScreenProps = {
   activeTeamCanEndBidTurn: boolean;
   activeTeamCanPassBid: boolean;
+  activeTeamCanRaiseBid: boolean;
   activeTeamRole: TeamRoundRole | undefined;
   biddingState: ActiveBiddingState;
+  drawingCategory?: string;
+  maximumDrawingBid?: number;
   onEndBidTurn: () => void;
   onPassBid: () => void;
   onRaiseBid: () => void;
@@ -30,8 +34,11 @@ type BiddingScreenProps = {
 export function BiddingScreen({
   activeTeamCanEndBidTurn,
   activeTeamCanPassBid,
+  activeTeamCanRaiseBid,
   activeTeamRole,
   biddingState,
+  drawingCategory,
+  maximumDrawingBid,
   onEndBidTurn,
   onPassBid,
   onRaiseBid,
@@ -44,6 +51,9 @@ export function BiddingScreen({
   const activeTeam = teamById.get(biddingState.activeTeamId);
   const holdingTeam =
     biddingState.highestBidTeamId !== null ? teamById.get(biddingState.highestBidTeamId) : undefined;
+  const bidLimitMessage = maximumDrawingBid !== undefined && !activeTeamCanRaiseBid
+    ? `Maximal ${maximumDrawingBid} Begriffe verfügbar`
+    : undefined;
 
   if (usesTableMode) {
     return (
@@ -51,6 +61,7 @@ export function BiddingScreen({
         <TableSideControls
           canEndTurn={activeTeamCanEndBidTurn}
           canPass={activeTeamCanPassBid}
+          canRaise={activeTeamCanRaiseBid}
           className="is-opponent"
           isActive={teams[1]?.id === biddingState.activeTeamId}
           onEndTurn={onEndBidTurn}
@@ -62,7 +73,9 @@ export function BiddingScreen({
         <BiddingCenterQuestion
           activeTeam={activeTeam}
           activeTeamRole={activeTeamRole}
+          bidLimitMessage={bidLimitMessage}
           currentBid={biddingState.currentBid}
+          drawingCategory={drawingCategory}
           facesOpponent={teams[1]?.id === biddingState.activeTeamId}
           holdingTeam={holdingTeam}
           question={question}
@@ -70,6 +83,7 @@ export function BiddingScreen({
         <TableSideControls
           canEndTurn={activeTeamCanEndBidTurn}
           canPass={activeTeamCanPassBid}
+          canRaise={activeTeamCanRaiseBid}
           className="is-active"
           isActive={teams[0]?.id === biddingState.activeTeamId}
           onEndTurn={onEndBidTurn}
@@ -95,8 +109,15 @@ export function BiddingScreen({
           statusText={holdingTeam ? formatBidStatus(activeTeam, holdingTeam) : undefined}
         />
         <p className="round-meta">{question.text}</p>
+        <DrawingCategory category={drawingCategory} />
+        {bidLimitMessage ? <p className="round-meta" role="status">{bidLimitMessage}</p> : null}
         <div className="action-row">
-          <button className="primary-action" onClick={onRaiseBid} type="button">
+          <button
+            className="primary-action"
+            disabled={!activeTeamCanRaiseBid}
+            onClick={onRaiseBid}
+            type="button"
+          >
             Einsatz +1
           </button>
           <button

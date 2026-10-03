@@ -357,6 +357,24 @@ describe('App', () => {
     expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
   });
 
+  it('scrolls to the top when switching between player names and game settings', () => {
+    openSetup();
+    clickButton('4 Spieler');
+    expectButtonSelected('4 Spieler', true);
+    expectButtonSelected('6 Spieler', false);
+    fillPlayerNames(['Anna', 'Ben', 'Clara', 'David']);
+    scrollToMock.mockClear();
+    clickButton('Weiter zu Einstellungen');
+    expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+    expectButtonSelected('6 Runden', true);
+    clickButton('8 Runden');
+    expectButtonSelected('8 Runden', true);
+    expectButtonSelected('6 Runden', false);
+    scrollToMock.mockClear();
+    clickButton('Zurück');
+    expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+  });
+
   it('lets players switch sounds off for the current session', () => {
     expect(findButton('Sounds aus').getAttribute('aria-pressed')).toBe('true');
 
@@ -420,7 +438,14 @@ describe('App', () => {
     expectText('Challenge liefern');
     expectText('Timer an, Antworten raus, alle fiebern mit. Das Team mit dem höchsten Einsatz muss zeigen, dass es nicht nur große Töne spuckt.');
     expectText('Zählen und fair prüfen');
-    expectText('Der Tracker zählt live mit. Wenn etwas verrutscht, korrigiert ihr kurz und die App vergibt den Punkt.');
+    expectText('Ihr zählt mit dem Tracker mit und prüft die Antworten gemeinsam. Korrigiert bei Bedarf den Zähler und bestätigt das Ergebnis. Die App vergibt den Punkt.');
+    const answerRules = container.querySelector<HTMLDetailsElement>('details.answer-rules');
+    expect(answerRules?.open).toBe(false);
+    act(() => answerRules?.querySelector('summary')?.click());
+    expect(answerRules?.open).toBe(true);
+    expectText('Bei „Synonyme für Chef“ dürfen „Boss“ und „Vorgesetzter“ jeweils zählen.');
+    act(() => answerRules?.querySelector('summary')?.click());
+    expect(answerRules?.open).toBe(false);
     expectNoText('Teams bieten ein Ziel');
     expectNoText('Eine Challenge entscheidet');
     expectNoText('Tracker zählt die Antworten');
@@ -437,7 +462,8 @@ describe('App', () => {
     expectText('Wie viele Testantworten kann dein Buddy nennen?');
     expectText('Einsatzrunde starten');
     expectNoText('Aktueller Einsatz');
-    expectNoText('Punktestand');
+    expect(container.querySelector('.round-screen')?.textContent).not.toContain('Punktestand');
+    expect(container.querySelector('.score-chip .visually-hidden')?.textContent).toBe('Punktestand: Team 1 0:0 Team 2');
 
     clickButton('Einsatzrunde starten');
 
@@ -1600,12 +1626,19 @@ describe('App', () => {
     expectText('Team 1 bekommt 1 Punkt.');
   });
 
-  it('frames challenge review as a clear correction step before confirmation', () => {
+  it.each([
+    { category: 'medien-popkultur', text: 'Wie viele Filmtitel kann dein Buddy nennen?' },
+    { category: 'woerter-namen', text: 'Wie viele Synonyme für „Chef“ kann dein Buddy nennen?' },
+    { category: 'koerperlich', text: 'Wie viele Liegestütze schafft dein Buddy in 30 Sekunden?' },
+  ] as const)('supports correction with appropriate counting guidance for $category', ({ category, text }) => {
+    renderAppWithDeck([{ ...defaultTestDeck[0], category, text }]);
     startFourPlayerGame();
     clickButton('Einsatz +1');
     clickButton('Weitergeben');
     clickButton('Passen');
+    expectNoText('Was zählt als Antwort?');
     clickButton('Challenge starten');
+    expectNoText('Was zählt als Antwort?');
     clickButton('+1');
     clickButton('+1');
     clickButton('Auswertung prüfen');
@@ -1620,6 +1653,17 @@ describe('App', () => {
       '2 / 2',
     );
     expect(container.querySelector('.challenge-review__stepper')).not.toBeNull();
+    const answerRules = container.querySelector<HTMLDetailsElement>('details.answer-rules');
+    if (category === 'koerperlich') {
+      expect(answerRules).toBeNull();
+      expectNoText('Antworten gemeinsam prüfen:');
+    } else {
+      expectText('Antworten gemeinsam prüfen: passend, unterschiedlich und nach dem Fragetext gezählt.');
+      expect(answerRules?.open).toBe(false);
+      act(() => answerRules?.querySelector('summary')?.click());
+      expect(answerRules?.open).toBe(true);
+      expect(container.querySelector('.challenge-review__score')?.textContent).toBe('2 / 2');
+    }
     expect(container.querySelector('button.primary-action')?.textContent).toBe(
       'Geschafft bestätigen',
     );
@@ -1708,6 +1752,7 @@ describe('App', () => {
     expectButtonCount('Stoppen', 0);
     expectText('Gemessen: 2 Sekunden / Einsatz 2 Sekunden');
     expectText('Ergebnis-Check');
+    expectNoText('Was zählt als Antwort?');
     expectText('Geschafft');
     expect(container.querySelector('.challenge-review__score')?.textContent).toContain('2 / 2');
     expect(container.querySelector('.challenge-review[data-outcome="success"]')).not.toBeNull();
@@ -1771,7 +1816,8 @@ describe('App', () => {
     expect(container.querySelector('[aria-label="Unterarmstütz Illustration"]')).not.toBeNull();
   });
 
-  it('uses drawing-specific wording for drawing challenges', () => {
+  it.each(['category', 'logos'] as const)('plays a complete secret %s drawing round with a shared timer and corrected score', (mode) => {
+    vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     const drawingDeck: Question[] = [
       {
@@ -1780,7 +1826,7 @@ describe('App', () => {
         category: 'spiele-kreativitaet',
         timeLimit: 60,
         type: 'drawing',
-        drawingPrompt: 'category',
+        drawingPrompt: mode === 'category' ? 'category' : undefined,
       },
     ];
 
@@ -1788,17 +1834,57 @@ describe('App', () => {
       renderAppWithDeck(drawingDeck);
 
       prepareFourPlayerRound();
+      const expectedCategory = mode === 'category' ? 'Gegenstände' : 'Markenlogos';
+      expectText(`Zeichen-Kategorie: ${expectedCategory}`);
+      // Changing randomness after the introduction must not change the agreed topic.
+      randomSpy.mockReturnValue(0.99);
       clickButton('Einsatzrunde starten');
+      expectText(`Zeichen-Kategorie: ${expectedCategory}`);
       clickButton('Einsatz +1');
       clickButton('Weitergeben');
       clickButton('Passen');
 
-      expectText('Ben muss 2 Begriffe schaffen');
-      expectText('Zeichen-Kategorie');
-      expectText('Gegenstände');
-      expectText('Zeichenzeit: 60 Sekunden');
-      expectText('Erraten: 0 / Einsatz 2');
-      expectButtonCount('Erraten +1', 1);
+      expectText('Ben zeichnet · Anna rät');
+      expectText(`${expectedCategory} · Team 2 prüft mit`);
+      expectText('Erraten: 0 / 2');
+      expect(container.querySelector('[aria-label="Geheimer Zeichenbegriff"]')).toBeNull();
+      clickButton('Begriff anzeigen');
+      const firstPrompt = container.querySelector('[aria-label="Geheimer Zeichenbegriff"]')?.textContent;
+      expect(firstPrompt).toBe(mode === 'category' ? 'Regenschirm' : 'Nike');
+      act(() => vi.advanceTimersByTime(5_000));
+      expect(container.querySelector('[aria-label="Zeichenzeit: 60 Sekunden"]')).not.toBeNull();
+      clickButton('Verdecken & Zeichnen starten');
+      expect(container.querySelector('.drawing-board__surface')).not.toBeNull();
+      expectNoText(firstPrompt!);
+      act(() => vi.advanceTimersByTime(10_000));
+      clickButton('Erraten +1');
+      expectText('Erraten: 1 / 2');
+      expectText('Die Zeit läuft weiter');
+      expect(container.querySelector('.drawing-board__surface')).toBeNull();
+      clickButton('Begriff anzeigen');
+      const secondPrompt = container.querySelector('[aria-label="Geheimer Zeichenbegriff"]')?.textContent;
+      expect(secondPrompt).not.toBe(firstPrompt);
+      act(() => vi.advanceTimersByTime(5_000));
+      expect(container.querySelector('[aria-label="Zeichenzeit: 45 Sekunden"]')).not.toBeNull();
+      clickButton('Verdecken & weiterzeichnen');
+      expectNoText(secondPrompt!);
+      clickButton('Weiter ohne Treffer');
+      expectText('Erraten: 1 / 2');
+      clickButton('Begriff anzeigen');
+      act(() => vi.advanceTimersByTime(45_000));
+      expectText('Ergebnis-Check');
+      expect(container.querySelector('[aria-label="Geheimer Zeichenbegriff"]')).toBeNull();
+      expect(container.querySelector('.drawing-board__surface')).toBeNull();
+      expect(container.querySelector('.drawing-review')?.getAttribute('data-outcome')).toBe('failure');
+      expectNoText('Was zählt als Antwort?');
+      expectNoText('Antworten gemeinsam prüfen:');
+      clickButton('Erraten +1');
+      expect(container.querySelector('.drawing-review')?.getAttribute('data-outcome')).toBe('success');
+      clickButton('−1');
+      expectText('Erraten: 1 / 2');
+      clickButton('Erraten +1');
+      clickButton('Ergebnis bestätigen');
+      expectText('Team 1 bekommt 1 Punkt.');
     } finally {
       randomSpy.mockRestore();
     }
@@ -1930,8 +2016,13 @@ describe('App', () => {
     expect(teamOneSide?.textContent).toContain('Ben liefert');
   });
 
-  it('starts replay with unseen questions when enough remain in the current app session', () => {
-    const replayDeck = Array.from({ length: 12 }, (_, index): Question => {
+  it.each([
+    { replayAction: 'Nochmal spielen', replayRounds: 6 },
+    { replayAction: 'Einstellungen ändern', replayRounds: 6 },
+    { replayAction: 'Einstellungen ändern', replayRounds: 8 },
+    { replayAction: 'Einstellungen ändern', replayRounds: 10 },
+  ])('uses unseen questions via $replayAction for $replayRounds rounds', ({ replayAction, replayRounds }) => {
+    const replayDeck = Array.from({ length: 6 + replayRounds }, (_, index): Question => {
       const number = index + 1;
 
       return {
@@ -1956,13 +2047,71 @@ describe('App', () => {
       }
     }
 
-    clickButton('Nochmal spielen');
+    clickButton(replayAction);
+    if (replayAction === 'Einstellungen ändern') {
+      clickButton(`${replayRounds} Runden`);
+      clickButton('Teams erstellen');
+      clickButton('Spiel starten');
+    }
 
-    expectText('Wie viele Replay-Testantworten 7 kann dein Buddy nennen?');
-    expectNoText('Wie viele Replay-Testantworten 1 kann dein Buddy nennen?');
+    for (let round = 1; round <= replayRounds; round += 1) {
+      expectText(`Runde ${round} von ${replayRounds}`);
+      expectText(`Wie viele Replay-Testantworten ${6 + round} kann dein Buddy nennen?`);
+      clickButton('Einsatzrunde starten');
+      finishSuccessfulRound();
+      if (round < replayRounds) {
+        clickButton('Nächste Runde');
+      }
+    }
+    expectText('Finale');
   });
 
-  it('treats skipped prompts as seen when building the replay deck', () => {
+  it('faces the drawing surface toward the second team when the first team passes', () => {
+    renderAppWithDeck([{
+      id: 'drawing-second-team', text: 'Logos zeichnen', category: 'spiele-kreativitaet',
+      timeLimit: 60, type: 'drawing',
+    }]);
+    prepareFourPlayerRound();
+    clickButton('Einsatzrunde starten');
+    clickButton('Passen');
+    expectText('David zeichnet · Clara rät');
+    expectText('Team 1 prüft mit');
+    expect(container.querySelector('.drawing-challenge.faces-opponent')).not.toBeNull();
+    clickButton('Begriff anzeigen');
+    clickButton('Verdecken & Zeichnen starten');
+    expect(container.querySelector('.drawing-board__surface')).not.toBeNull();
+  });
+
+  it.each(['category', 'logos'] as const)('limits %s drawing bids to the number of available secret prompts', (mode) => {
+    renderAppWithDeck([{
+      id: 'drawing-limit', text: 'Logos zeichnen', category: 'spiele-kreativitaet',
+      timeLimit: 60, type: 'drawing',
+      drawingPrompt: mode === 'category' ? 'category' : undefined,
+    }]);
+    prepareFourPlayerRound();
+    clickButton('Einsatzrunde starten');
+    for (let bid = 1; bid < 24; bid += 1) clickButton('Einsatz +1');
+    expect(findButton('Einsatz +1').disabled).toBe(true);
+    expectText('Maximal 24 Begriffe verfügbar');
+    clickButton('Einsatz +1');
+    clickButton('Weitergeben');
+    expect(findButton('Einsatz +1').disabled).toBe(true);
+    clickButton('Passen');
+    expectText('Erraten: 0 / 24');
+  });
+
+  it.each(['count', 'duration'] as const)('does not apply the drawing prompt limit to %s bids', (type) => {
+    renderAppWithDeck([{
+      id: 'unlimited-test', text: 'Andere Aufgabe', category: 'koerperlich', timeLimit: 60, type,
+    }]);
+    startFourPlayerGame();
+    for (let bid = 1; bid < 25; bid += 1) clickButton('Einsatz +1');
+    expect(findButton('Einsatz +1').disabled).toBe(false);
+    expectNoText('Maximal 24 Begriffe verfügbar');
+    expect(container.querySelector('.table-bid-display strong')?.textContent).toBe('25');
+  });
+
+  it.each(['Nochmal spielen', 'Einstellungen ändern'])('treats skipped prompts as seen when replaying via %s', (replayAction) => {
     const replayDeck = Array.from({ length: 14 }, (_, index): Question => {
       const number = index + 1;
 
@@ -1991,10 +2140,99 @@ describe('App', () => {
       }
     }
 
-    clickButton('Nochmal spielen');
+    clickButton(replayAction);
+    if (replayAction === 'Einstellungen ändern') {
+      clickButton('Teams erstellen');
+      clickButton('Spiel starten');
+    }
 
     expectText('Wie viele Skip-Replay-Testantworten 8 kann dein Buddy nennen?');
     expectNoText('Wie viele Skip-Replay-Testantworten 1 kann dein Buddy nennen?');
+  });
+
+  it.each([false, true])('uses the edited categories and special-question level (%s) during replay', (includeSpecial) => {
+    const makeQuestions = (prefix: string, count: number, options: Partial<Question> = {}): Question[] =>
+      Array.from({ length: count }, (_, index) => ({
+        id: `${prefix}-${index + 1}`,
+        text: `${prefix} Frage ${index + 1}`,
+        category: 'medien-popkultur',
+        timeLimit: 30,
+        type: 'count',
+        ...options,
+      }));
+    renderAppWithDeck([
+      ...makeQuestions('Bereits gesehen', 6),
+      ...makeQuestions('Abgewählte Kategorie', 8, { category: 'spiele-kreativitaet' }),
+      ...makeQuestions('Neue Spezialfrage', 8, { isSpecial: true }),
+      ...makeQuestions('Neue normale', 8),
+    ]);
+    openSetupRules();
+    // Switch the level in both directions when editing the replay settings.
+    clickButton(includeSpecial ? 'Normale Fragen' : 'Auch Spezialfragen');
+    clickButton('Teams erstellen');
+    clickButton('Spiel starten');
+    for (let round = 1; round <= 6; round += 1) {
+      expectText(`Bereits gesehen Frage ${round}`);
+      clickButton('Einsatzrunde starten');
+      finishSuccessfulRound();
+      if (round < 6) {
+        clickButton('Nächste Runde');
+      }
+    }
+
+    clickButton('Einstellungen ändern');
+    clickButton('8 Runden');
+    clickButton('Spiele & Kreativität');
+    clickButton(includeSpecial ? 'Auch Spezialfragen' : 'Normale Fragen');
+    clickButton('Teams erstellen');
+    clickButton('Spiel starten');
+
+    for (let round = 1; round <= 8; round += 1) {
+      expectText(`${includeSpecial ? 'Neue Spezialfrage' : 'Neue normale'} Frage ${round}`);
+      expectNoText('Bereits gesehen Frage');
+      expectNoText('Abgewählte Kategorie Frage');
+      clickButton('Einsatzrunde starten');
+      finishSuccessfulRound();
+      if (round < 8) {
+        clickButton('Nächste Runde');
+      }
+    }
+    expectText('Finale');
+  });
+
+  it('uses the edited round count when too few unseen questions remain for replay', () => {
+    renderAppWithDeck(Array.from({ length: 12 }, (_, index): Question => ({
+      id: `small-replay-${index + 1}`,
+      text: `Kleiner Pool Frage ${index + 1}`,
+      category: 'medien-popkultur',
+      timeLimit: 30,
+      type: 'count',
+    })));
+    prepareFourPlayerRound();
+    for (let round = 1; round <= 6; round += 1) {
+      clickButton('Einsatzrunde starten');
+      finishSuccessfulRound();
+      if (round < 6) {
+        clickButton('Nächste Runde');
+      }
+    }
+
+    clickButton('Einstellungen ändern');
+    clickButton('8 Runden');
+    clickButton('Teams erstellen');
+    clickButton('Spiel starten');
+
+    // Six unseen questions would suffice for the old game, but not eight rounds.
+    for (let round = 1; round <= 8; round += 1) {
+      expectText(`Runde ${round} von 8`);
+      expectText(`Kleiner Pool Frage ${round}`);
+      clickButton('Einsatzrunde starten');
+      finishSuccessfulRound();
+      if (round < 8) {
+        clickButton('Nächste Runde');
+      }
+    }
+    expectText('Finale');
   });
 
   it('makes the finale visually distinct and lets players adjust settings before replaying', () => {

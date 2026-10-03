@@ -1,3 +1,5 @@
+import { AnswerRules } from './AnswerRules';
+
 export function RulesScreen({
   onBackHome,
   onOpenSetup,
@@ -27,11 +29,12 @@ export function RulesScreen({
         <article>
           <h3>3. Zählen und fair prüfen</h3>
           <p>
-            Der Tracker zählt live mit. Wenn etwas verrutscht, korrigiert ihr kurz und die
-            App vergibt den Punkt.
+            Ihr zählt mit dem Tracker mit und prüft die Antworten gemeinsam. Korrigiert
+            bei Bedarf den Zähler und bestätigt das Ergebnis. Die App vergibt den Punkt.
           </p>
         </article>
       </div>
+      <AnswerRules />
       <div className="action-row">
         <button className="secondary-action" onClick={onBackHome} type="button">
           Zur Startseite
