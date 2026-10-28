@@ -32,7 +32,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm test
-      - run: npm audit --audit-level=low
+      - run: npm run security:audit
       - run: npm run security:check
       - run: npm run build
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9

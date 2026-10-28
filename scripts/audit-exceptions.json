@@ -1,0 +1,11 @@
+{
+  "exceptions": [
+    {
+      "advisory": "GHSA-gcqx-w48m-w2h4",
+      "packages": ["deepmerge", "@rollup/plugin-node-resolve", "workbox-build", "vite-plugin-pwa"],
+      "maxSeverity": "low",
+      "expires": "2026-12-31",
+      "reason": "No patched release. Build-time only, no untrusted input."
+    }
+  ]
+}
