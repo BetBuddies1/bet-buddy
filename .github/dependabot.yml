@@ -6,7 +6,7 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     ignore:
-      # Keep Node types aligned with the Node 24 runtime used in CI.
+      # Raise Node types together with the runtime in .nvmrc, not on their own.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
     groups:

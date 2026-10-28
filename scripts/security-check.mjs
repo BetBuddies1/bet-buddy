@@ -15,8 +15,17 @@ const forbiddenPatterns = [
   { label: 'window.open', pattern: /window\.open/ },
 ];
 
-const sourceExtensions = new Set(['.ts', '.tsx', '.mjs', '.html']);
-const scanTargets = ['src', 'scripts', 'index.html', 'vite.config.ts'];
+// SVGs are served as images and documents; they must stay free of active content.
+const svgPatterns = [
+  { label: '<script', pattern: /<script/i },
+  { label: 'event handler attribute', pattern: /\son[a-z]+\s*=/i },
+  { label: 'javascript: URL', pattern: /javascript:/i },
+  { label: '<foreignObject', pattern: /<foreignObject/i },
+  { label: 'external reference', pattern: /(href|src)\s*=\s*["']\s*(https?:|\/\/|data:)/i },
+];
+
+const sourceExtensions = new Set(['.ts', '.tsx', '.mjs', '.html', '.svg']);
+const scanTargets = ['src', 'scripts', 'public', 'index.html', 'vite.config.ts'];
 const findings = [];
 
 function shouldScanFile(path) {
@@ -25,6 +34,10 @@ function shouldScanFile(path) {
   }
 
   return [...sourceExtensions].some((extension) => path.endsWith(extension));
+}
+
+function patternsFor(path) {
+  return path.endsWith('.svg') ? svgPatterns : forbiddenPatterns;
 }
 
 function scanPath(path) {
@@ -60,7 +73,7 @@ function scanFile(path) {
   const lines = readFileSync(path, 'utf8').split(/\r?\n/);
 
   lines.forEach((line, index) => {
-    forbiddenPatterns.forEach(({ label, pattern }) => {
+    patternsFor(path).forEach(({ label, pattern }) => {
       if (pattern.test(line)) {
         findings.push(`${path}:${index + 1}: forbidden pattern found: ${label}`);
       }
